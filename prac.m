@@ -71,8 +71,11 @@ uiextras.Empty('Parent', grid);
 ctrl(9) = uicontrol('Parent', grid, 'style', 'text', 'String', '# of Frames to Cap', ...
     'HorizontalAlignment', 'left');
 %uiextras.Empty('Parent', grid);
-ctrl(16) = uicontrol('Parent', grid, 'style', 'pushbutton', 'Callback', {@roi_callback, ax}, ...
-    'String', 'Set ROI');
+btnbox2 = uiextras.HButtonBox('Parent', grid, 'VerticalAlignment', 'Top', 'Spacing', 10);
+ctrl(16) = uicontrol('Parent', btnbox2, 'style', 'pushbutton', 'Callback', {@set_kernel_callback, ax}, ...
+    'String', 'Kernel');
+ctrl(17) = uicontrol('Parent', btnbox2, 'style', 'pushbutton', 'Callback', {@set_roi_callback, ax}, ...
+    'String', 'ROI');
 ctrl(14) = uicontrol('Parent', grid, 'style', 'text', 'String', 'Frames Processed', ...
     'HorizontalAlignment', 'left');
 ctrl(10) = uicontrol('Parent', grid, 'style', 'text', 'String', 'Resolution', ...
@@ -124,8 +127,16 @@ roi_pos = [0 0 vRes(1) vRes(2)];
 end
 
 function startcap_callback(h, e)
-global v roi_pos ctrl total_processed;
+global v roi_pos ctrl total_processed rect_kernel rect_roi;
+
+if(~isempty(rect_kernel) && ~isempty(rect_roi))
+    rect_kernel.setResizable(false);
+    rect_roi.setResizable(false);
+end
+
 filename = [datestr(now, 'yyyymmdd-HHMMSS') '.avi'];
+
+
 vid_log = avifile(filename);
 vid_log.Colormap = gray(256);
 total_processed = 0;
@@ -142,20 +153,42 @@ end
 
 function plot_callback(v, event) 
 global total_processed;
-%if isempty(frames_to_process)
-%    j = get(v, 'Fra
-%en
 
 ac = get(v, 'FramesAcquired');
 av = get(v, 'FramesAvailable');
 
-data = getdata(v, av);
+[data timing] = getdata(v, av);
 
-for i=1:av
-%  data(:,:,1,i) = imcomplement(data(:,:,1,i));
+% Data analysis section %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+global rect_kernel rect_roi;
+if(~isempty(rect_kernel) && ~isempty(rect_roi))
+    for i = 1:5:av
+        roi = imcrop(data(:,:,1,i), rect_roi.getPosition);
+        kern = imcrop(data(:,:,1,i), rect_kernel.getPosition);
+
+        a = size(roi);
+        b = size(kern);
+
+        roi_p = padarray(roi, [b(1)-1 b(2)-1], 0, 'post');
+        kern_p = padarray(kern, [a(1)-1 a(2)-1], 0, 'post');
+        
+        %size(roi_p)
+        %size(kern_p)
+
+        %a2 = a(1)+b(1)-1
+        %b2 = a(2)+b(2)-1
+        C = real(ifft2(fft2(roi_p) .* fft2(rot90(kern_p,2))));
+        
+        %cropped = imcomplement(cropped);
+        val = max(C(:));
+
+        figure(3),imshow(C > val*0.98);
+    end
 end
 
-%figure(3),imaqmontage(data(:,:,1,:));
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 total_processed = total_processed + av;
 global ctrl;
@@ -168,9 +201,13 @@ end
 
 function stop_callback(v, e)
 plot_callback(v,e);
-global ctrl;
+global ctrl rect_kernel rect_roi;
 s = close(v.DiskLogger);
 set(ctrl(12), 'Enable', 'on');
+if(~isempty(rect_kernel) && ~isempty(rect_roi))
+    rect_kernel.setResizable(true);
+    rect_roi.setResizable(true);
+end
 end
 
 function destroy_callback(h, e)
@@ -219,19 +256,34 @@ else
 end
 end
 
-function roi_callback(h, e, ax)
+function set_kernel_callback(h, e, ax)
+global rect_kernel;
+if(~isempty(rect_kernel))
+    rect_kernel.delete;
+end
+r = imrect(ax);
+r.setColor('r');
+r.addNewPositionCallback(@roi_pos_callback);
+rect_kernel = r;
+end
+
+function set_roi_callback(h, e, ax)
 % Change the axes button down callback 
 % Click Number
 %set(img, 'ButtonDownFcn', {@roi_draw_callback});
-
-r = imrect(ax)
-r.addNewPositionCallback(@roi_draw_callback);
+global rect_roi;
+if(~isempty(rect_roi))
+    rect_roi.delete;
+end
+r = imrect(ax);
+r.setColor('g');
+r.addNewPositionCallback(@roi_pos_callback);
+rect_roi = r;
 end
 
-function roi_draw_callback(pos)
-global roi_pos;
-roi_pos = pos;
-disp(pos);
+function roi_pos_callback(pos, str)
+end
+function kernel_pos_callback(pos, str)
 end
 
 function fps_callback(h, e)
