@@ -166,23 +166,12 @@ if(~isempty(rect_kernel) && ~isempty(rect_roi))
         roi = imcrop(data(:,:,1,i), rect_roi.getPosition);
         kern = imcrop(data(:,:,1,i), rect_kernel.getPosition);
 
-        a = size(roi);
-        b = size(kern);
-
-        roi_p = padarray(roi, [b(1)-1 b(2)-1], 0, 'post');
-        kern_p = padarray(kern, [a(1)-1 a(2)-1], 0, 'post');
+        dat = normxcorr2(roi, kern);
+        [max_cc, imax] = max(abs(dat(:)));
+        [ypeak, xpeak] = ind2sub(size(dat),imax(1));
         
-        %size(roi_p)
-        %size(kern_p)
-
-        %a2 = a(1)+b(1)-1
-        %b2 = a(2)+b(2)-1
-        C = real(ifft2(fft2(roi_p) .* fft2(rot90(kern_p,2))));
-        
-        %cropped = imcomplement(cropped);
-        val = max(C(:));
-
-        figure(3),imshow(C > val*0.98);
+        figure, hold on, imshow(roi);
+        scatter(xpeak, ypeak);
     end
 end
 
