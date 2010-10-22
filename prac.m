@@ -166,12 +166,11 @@ if(~isempty(rect_kernel) && ~isempty(rect_roi))
         roi = imcrop(data(:,:,1,i), rect_roi.getPosition);
         kern = imcrop(data(:,:,1,i), rect_kernel.getPosition);
 
-        dat = normxcorr2(roi, kern);
-        [max_cc, imax] = max(abs(dat(:)));
-        [ypeak, xpeak] = ind2sub(size(dat),imax(1));
-        
-        figure, hold on, imshow(roi);
-        scatter(xpeak, ypeak);
+        dat = normxcorr2(kern, roi);
+        %[max_cc, imax] = max(abs(dat(:)));
+        %[ypeak, xpeak] = ind2sub(size(dat),imax(1));
+            
+        figure(4), imshow(dat, 'InitialMagnification', 400), colorbar;
     end
 end
 

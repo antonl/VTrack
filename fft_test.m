@@ -10,6 +10,4 @@ kern.setColor('r');
 
 kimg = imcrop(img, kern.getPosition);
 dat = normxcorr2(kimg, img);
-[max_cc, imax] = max(abs(dat(:)));
-[ypeak, xpeak] = ind2sub(size(dat),imax(1));
-
+figure, imshow(dat), colorbar;
