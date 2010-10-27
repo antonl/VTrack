@@ -161,16 +161,26 @@ av = get(v, 'FramesAvailable');
 
 % Data analysis section %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 global rect_kernel rect_roi;
+
+persistent p_kern;
+% p_kern contains the previous frame's kernel
 if(~isempty(rect_kernel) && ~isempty(rect_roi))
     for i = 1:5:av
         roi = imcrop(data(:,:,1,i), rect_roi.getPosition);
         kern = imcrop(data(:,:,1,i), rect_kernel.getPosition);
-
-        dat = normxcorr2(kern, roi);
-        %[max_cc, imax] = max(abs(dat(:)));
-        %[ypeak, xpeak] = ind2sub(size(dat),imax(1));
-            
-        figure(4), imshow(dat, 'InitialMagnification', 400), colorbar;
+        
+        if(~isempty(p_kern))
+            %figure, imshow(p_kern, 'InitialMagnification', 450);
+            dat = normxcorr2(p_kern, roi);
+           
+            stats = regionprops(dat > 0.35, dat, {'WeightedCentroid'});
+            cm = stats.WeightedCentroid;
+            figure(4), imshow(dat, 'InitialMagnification', 450), colorbar;                    
+            figure(5), hold on, plot(cm, 'r*');
+            disp(cm);
+        end
+        
+        p_kern = kern;
     end
 end
 
