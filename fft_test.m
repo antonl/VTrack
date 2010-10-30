@@ -30,6 +30,6 @@ cm = cm - pos(3:4)./2;
 cm2 = cm2 - pos(3:4)./2;
 figure(1), hold on, scatter(cm(1), cm(2), 'r');
 figure(1), hold on, scatter(cm2(1), cm2(2), 'g');
-cm
 
+disp(sprintf('FFT Conv: %g,%g\nSpace Conv: %g,%g', cm(1), cm(2), cm2(1), cm2(2)));
 
