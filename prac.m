@@ -6,11 +6,15 @@ sz = get(0, 'ScreenSize');
 dim = [800 700];
 conf = 200;
 
+global figs; % To hold all figure handles
+
 % Create a hidden figure that will be populated with ui controls.
 h = figure('Visible', 'off', 'Position', [(sz(3)-dim(1))/2 (sz(4)-dim(2))/2 dim], ...
     'Toolbar', 'none', 'MenuBar', 'none', 'NumberTitle', 'off', 'Renderer', 'ZBuffer', ...
     'Name', 'ParticleTrack', 'Resize', 'off', 'DeleteFcn', @destroy_callback, ...
     'DoubleBuffer', 'on');
+figs(1) = h;
+
 vbox = uiextras.VBox('Parent', h);
 
 ax = axes('Parent', vbox, 'HandleVisibility', 'Callback', ...
@@ -113,7 +117,11 @@ catch e
     %error('pt_track:top:FailVideoInit', 'Could not initialize video. Please check settings.');
 end
 
-set(h, 'Visible', 'on');
+figs(2) = figure('Visible', 'off', 'Toolbar', 'none', 'MenuBar', 'none', 'NumberTitle', 'off', ...
+    'Name', 'Convolution Image', 'Resize', 'off', 'DoubleBuffer', 'on');
+figs(3) = figure('Visible', 'off', 'Toolbar', 'none', 'MenuBar', 'none', 'NumberTitle', 'off', ...
+    'Name', 'Positions', 'Resize', 'off', 'DoubleBuffer', 'on');
+set(figs(1:3), 'Visible', 'on');
 end
 
 function v = vid_init()
@@ -160,10 +168,16 @@ av = get(v, 'FramesAvailable');
 [data timing] = getdata(v, av);
 
 % Data analysis section %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-global rect_kernel rect_roi;
+global rect_kernel rect_roi figs;
 
-persistent p_kern;
+persistent p_kern prev_cm acc_cm;
 % p_kern contains the previous frame's kernel
+
+if(isempty(acc_cm))
+    acc_cm = [0 0];
+end
+
+
 if(~isempty(rect_kernel) && ~isempty(rect_roi))
     for i = 1:5:av
         roi = imcrop(data(:,:,1,i), rect_roi.getPosition);
@@ -173,11 +187,31 @@ if(~isempty(rect_kernel) && ~isempty(rect_roi))
             %figure, imshow(p_kern, 'InitialMagnification', 450);
             dat = normxcorr2(p_kern, roi);
            
-            stats = regionprops(dat > 0.35, dat, {'WeightedCentroid'});
+            stats = regionprops(dat > 0.7, dat, {'WeightedCentroid'});
             cm = stats.WeightedCentroid;
-            figure(4), imshow(dat, 'InitialMagnification', 450), colorbar;                    
-            figure(5), hold on, plot(cm, 'r*');
-            disp(cm);
+            %set(0, 'CurrentFigure', figs(2)), imshow(dat, 'InitialMagnification', 450), colorbar;                    
+            set(0, 'CurrentFigure', figs(3)), hold on, plot(cm(1), cm(2), 'r*');
+            %disp(cm);
+
+            if(~isempty(prev_cm))
+                acc_cm = acc_cm + prev_cm - cm;
+            end
+            
+            pos = rect_roi.getPosition;
+            pos_k = rect_kernel.getPosition;
+
+            acc_cm 
+            if(max(acc_cm) > 0.01*min(pos_k(3:4)))
+                pos(1:2) = floor(acc_cm) + pos(1:2);
+                rect_roi.setPosition(pos);
+                pos_k = rect_kernel.getPosition;
+                pos_k(1:2) = floor(acc_cm) + pos_k(1:2);
+                rect_roi.setPosition(pos_k);
+                disp(sprintf('Moved center by %g, %g', acc_cm(1), acc_cm(2)));
+                acc_cm = [0 0];
+            end
+
+            prev_cm = cm;
         end
         
         p_kern = kern;
