@@ -171,8 +171,10 @@ if(~isempty(rect_kernel) && ~isempty(rect_roi))
         
         if(~isempty(p_kern))
             %figure, imshow(p_kern, 'InitialMagnification', 450);
-            dat = normxcorr2(p_kern, roi);
-           
+            dat = conv2(roi, p_kern, 'valid');
+          
+            mval = max(dat(:));
+            dat = dat./mval; % Normalize
             stats = regionprops(dat > 0.35, dat, {'WeightedCentroid'});
             cm = stats.WeightedCentroid;
             figure(4), imshow(dat, 'InitialMagnification', 450), colorbar;                    
