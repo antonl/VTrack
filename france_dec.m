@@ -1,7 +1,7 @@
 clear all;
 close all;
 
-thresh = 0.9;
+thresh = 0.2;
 
 % Load all images
 path = 'timage\';
@@ -12,70 +12,96 @@ global kern roi;
 global h; % handles array
 
 % NOTE: dir returns a struct array
+try
+    % Determine kernel and roi
+    img = imread([path imgs(1).name]);
+    h = figure; imshow(img);
 
-% Determine kernel and roi
-img = imread([path imgs(1).name]);
-h = figure; imshow(img);
+    krect = imrect; % kernel position
+    krect.setColor('g');
+    krect.setResizable(false);
 
-krect = imrect; % kernel position
-krect.setColor('g');
-krect.setResizable(false);
-
-rrect = imrect; % roi position
-rrect.setColor('r');
-rrect.setResizable(false);
+    rrect = imrect; % roi position
+    rrect.setColor('r');
+    rrect.setResizable(false);
+catch
+end
 
 kern = imcrop(img, krect.getPosition); % Set initial kernel
 
 p_roi = rrect.getPosition;
 p_kern = krect.getPosition;
-accum = [0 0]; % Accumulated difference in center of mass
-prevc = p_roi(1:2) + p_roi(3:4)./2; % Previous center of mass
 
 close(h); % Close figure
 x = zeros(1,length(imgs)-1); % x-positions
 y = zeros(1,length(imgs)-1); % y-positions
-for i = 2:length(imgs) % Process each image
-%for i = 2:4
-    disp(sprintf('reading img %d', i));
-    
-    img = imread([path imgs(i).name]);
-    roi = imcrop(img, p_roi);    
 
+accum = [0 0]; % Accumulated movement
+prev = [p_roi(1)-p_kern(1)+p_kern(3)/2 p_roi(2)-p_kern(2)+p_kern(4)/2]; % Previous calculated center of mass
+% Initial guess - center of kernel
+
+for i = 2:length(imgs) % Process each image
+    img = imread([path imgs(i).name]);
+    roi = imcrop(img, p_roi); % this gives all pixels fully and partially enclosed
+    % Size is actually p_roi width +1,height +1
+    
     % Do correlation
-    dat = conv2(single(roi), single(rot90(kern,2)), 'same');
+    try
+        dat = conv2(single(roi), single(rot90(kern,2)), 'same');
+        if(isempty(dat))
+            error('Could not calculate convolution');
+        end
+    catch % Do a little error handling
+    end
 
     % Normalize
     mval = max(dat(:));
     dat = dat./mval; % Normalize
 
-    s = regionprops(dat > thresh, dat, 'WeightedCentroid');
-    if mod(i,5) == 0
-        figure(2), image(dat > thresh), colorbar;
+    try
+        s = regionprops(dat > thresh, dat, 'WeightedCentroid');
+        if(isempty(s))
+            error('Could not calculate region props');
+        end
+        cent = s.WeightedCentroid; % Center of mass is relative to the edge of the ROI box
+    catch
     end
+    % Get accumuated movement, update previous cm
+    % Cm is relative to p_roi location
+    accum = accum + cent - prev;
 
-    cent = s.WeightedCentroid; % Center of mass is relative to the edge of the ROI box
+    fprintf(1, 'Accum: (%3.2f, %3.2f)\tCent: (%3.2f, %3.2f)\tPrev: (%3.2f, %3.2f)\n',...
+    accum(1), accum(2), cent(1), cent(2), prev(1), prev(2));
+    prev = cent;
 
     %figure(2), hold on, plot(cent(1), cent(2), '*r');
-    x(i-1) = cent(1);
-    y(i-1) = cent(2);
+    x(i-1) = p_roi(1) + cent(1);
+    y(i-1) = p_roi(2) + cent(2);
 
-    tmp = p_kern(1:2); 
     % Recenter Kernel
-    p_kern(1:2) = p_roi(1:2) + cent./2; 
-    %disp(sprintf('CM (%g, %g) Delta (%g, %g) PKern (%g, %g)', cent(1), cent(2), cent(1)-prevc(1), cent(2)-prevc(2), p_kern(1), p_kern(2)));
+    if( max(abs(accum)) > 1 ) 
+        p_kern(1:2) = p_roi(1:2) + floor(cent./2); 
+    end
 
-    p_roi(1:2) = tmp - p_kern(1:2) + p_roi(1:2); 
+    % Recenter ROI
+    if( max(abs(accum)) > 4 ) 
+        p_roi(1:2) = p_roi(1:2) + floor(accum); % center ROI on CM 
+        accum = [0 0]; % Reset accum
+    end
+
+    % Paste correlation image into original image
+    sz = size(img);
+    dsz = size(dat);
+    img(sz(2) - dsz(1) + 1:sz(2), sz(1) - dsz(2) + 1:sz(1)) = dat.*255;
     
-    imshow(img); rectangle('Position', p_roi, 'EdgeColor', 'g'), rectangle('Position', p_kern, 'EdgeColor', 'r');
+    imshow(img); 
+    rectangle('Position', p_roi, 'EdgeColor', 'g');
+    rectangle('Position', p_kern, 'EdgeColor', 'r');
+    
+    pause(0.1);
     kern = imcrop(img, p_kern);
 end
 
-figure, plot(x, y, '.r');
-figure, plot(1:length(x), x, 'r');
-hold on, plot(1:length(y), y), 'g';
-
-%dat = importdata('particletrack.dat', ' ');
-%p = dat(:, 2:3);
-%figure, plot(p(:,1), p(:,2), '.r');
-%figure, hold on, plot(1:length(p(:,1)), p(:,1), 'r'), plot(1:length(p(:,2)), p(:,2), 'g');
+figure, plot(x, y, 'r');
+figure, scatter(1:length(x), x, 'r');
+hold on, scatter(1:length(y), y), 'g';
