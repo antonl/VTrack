@@ -4,7 +4,7 @@ close all;
 thresh = 0.2;
 
 % Load all images
-path = 'timage\';
+path = 'timage_jump\';
 imgs = dir([path 'img*']); % Select proper series with wildcards
 % Space in the name above is important
 
@@ -37,7 +37,7 @@ x = zeros(1,length(imgs)-1); % x-positions
 y = zeros(1,length(imgs)-1); % y-positions
 
 accum = [0 0]; % Accumulated movement
-prev = [p_roi(1)-p_kern(1)+p_kern(3)/2 p_roi(2)-p_kern(2)+p_kern(4)/2]; % Previous calculated center of mass
+prev = [-p_roi(1)+p_kern(1)+p_kern(3)/2 -p_roi(2)+p_kern(2)+p_kern(4)/2]; % Previous calculated center of mass
 % Initial guess - center of kernel
 
 for i = 2:length(imgs) % Process each image
@@ -69,25 +69,35 @@ for i = 2:length(imgs) % Process each image
     % Get accumuated movement, update previous cm
     % Cm is relative to p_roi location
     accum = accum + cent - prev;
+    assert(all(cent > 0) && all(prev > 0), 'Cent or Prev negative');
 
     fprintf(1, 'Accum: (%3.2f, %3.2f)\tCent: (%3.2f, %3.2f)\tPrev: (%3.2f, %3.2f)\n',...
-    accum(1), accum(2), cent(1), cent(2), prev(1), prev(2));
+        accum(1), accum(2), cent(1), cent(2), prev(1), prev(2));
+
     prev = cent;
 
     %figure(2), hold on, plot(cent(1), cent(2), '*r');
     x(i-1) = p_roi(1) + cent(1);
     y(i-1) = p_roi(2) + cent(2);
 
-    % Recenter Kernel
-    if( max(abs(accum)) > 1 ) 
-        p_kern(1:2) = p_roi(1:2) + floor(cent./2); 
+    if(max(abs(accum)) >= 1)
+        fprintf(1, '%3d:\tMoved kernel by (%3.2f, %3.2f)\n', i, floor(accum(1)), ...
+            floor(accum(2)));
+        p_kern(1:2) = p_kern(1:2) + floor(accum); % Accum is relative to both p_kern 
+        % original position and p_roi. It is RELATIVE shift 
+        accum = accum - floor(accum); % Retain the fractional part of the movement
     end
+    
+    % Recenter Kernel
+%    if( max(abs(accum)) > max(p_kern(3:4)./8) ) 
+%        fprintf(1, '\t\t Moved ROI by (%3.2f, %3.2f)\n', floor(accum(1)), floor(accum(2)));
+%        p_roi(1:2) = p_roi(1:2) + floor(accum); % center ROI on CM 
+%        accum = [0 0]; % Reset accum
+%    end
 
     % Recenter ROI
-    if( max(abs(accum)) > 4 ) 
-        p_roi(1:2) = p_roi(1:2) + floor(accum); % center ROI on CM 
-        accum = [0 0]; % Reset accum
-    end
+    %if( max(abs(accum)) > 1 ) 
+    %end
 
     % Paste correlation image into original image
     sz = size(img);
@@ -97,7 +107,8 @@ for i = 2:length(imgs) % Process each image
     imshow(img); 
     rectangle('Position', p_roi, 'EdgeColor', 'g');
     rectangle('Position', p_kern, 'EdgeColor', 'r');
-    
+   
+
     pause(0.1);
     kern = imcrop(img, p_kern);
 end
