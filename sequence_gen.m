@@ -14,10 +14,10 @@ bg = 10; % Between 255 and 0
 % Peak intensity value
 i0 = 1;
 % Size of particle, radius
-part = 5;
+part = 20;
 
 % Motion of the particle, (x, y)
-pos = @(t) [100 + floor(0.1.*t) + 0.1*rand(1), 200];  
+pos = @(t) [100 + 0.25.*floor(0.1.*t), 200];  
 
 % % % % % % % % % % % % % % 
 % Start image generation

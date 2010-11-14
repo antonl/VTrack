@@ -113,6 +113,6 @@ for i = 2:length(imgs) % Process each image
     kern = imcrop(img, p_kern);
 end
 
-figure, plot(x, y, 'r');
-figure, scatter(1:length(x), x, 'r');
-hold on, scatter(1:length(y), y), 'g';
+%figure, plot(x, y, 'r');
+%figure, scatter(1:length(x), x, 'r');
+%hold on, scatter(1:length(y), y), 'g';
