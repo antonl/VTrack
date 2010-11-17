@@ -24,34 +24,36 @@ try
     rrect = imrect; % roi position
     rrect.setColor('r');
     rrect.setResizable(false);
+
+    p_roi = floor(rrect.getPosition);
+    p_kern = floor(krect.getPosition);
 catch
+    error('Failed to draw ROI and things');
 end
 
-kern = imcrop(img, krect.getPosition); % Set initial kernel
 
-p_roi = rrect.getPosition;
-p_kern = krect.getPosition;
+kern = imcrop(img, p_kern); % Set initial kernel
 
 close(h); % Close figure
-x = zeros(1,length(imgs)-1); % x-positions
-y = zeros(1,length(imgs)-1); % y-positions
+xy = zeros(length(imgs)-1,2); % x-positions
 
 accum = [0 0]; % Accumulated movement
-prev = [-p_roi(1)+p_kern(1)+p_kern(3)/2 -p_roi(2)+p_kern(2)+p_kern(4)/2]; % Previous calculated center of mass
+prev = floor([-p_roi(1)+p_kern(1)+p_kern(3)/2 -p_roi(2)+p_kern(2)+p_kern(4)/2]); % Previous calculated center of mass
 % Initial guess - center of kernel
 
 for i = 2:length(imgs) % Process each image
-    img = imread([path imgs(i).name]);
-    roi = imcrop(img, p_roi); % this gives all pixels fully and partially enclosed
-    % Size is actually p_roi width +1,height +1
-    
+    img = imread([path imgs(i).name]); % Width, Height
+    roi = img(p_roi(2):p_roi(2)+p_roi(4), p_roi(1):p_roi(1)+p_roi(3)); 
+    % this gives all pixels fully and partially enclosed
+   
     % Do correlation
     try
-        dat = conv2(single(roi), single(rot90(kern,2)), 'same');
+        dat = conv2(double(roi), double(rot90(kern,2)), 'same');
         if(isempty(dat))
-            error('Could not calculate convolution');
+            throw('Could not calculate convolution');
         end
     catch % Do a little error handling
+        error('Could not calculate convolution');
     end
 
     % Normalize
@@ -66,27 +68,29 @@ for i = 2:length(imgs) % Process each image
         cent = s.WeightedCentroid; % Center of mass is relative to the edge of the ROI box
     catch
     end
+   
     % Get accumuated movement, update previous cm
+    assert(all(cent > 0) && all(prev > 0), 'Cent or Prev negative');
+    
     % Cm is relative to p_roi location
     accum = accum + cent - prev;
-    assert(all(cent > 0) && all(prev > 0), 'Cent or Prev negative');
 
     fprintf(1, 'Accum: (%3.2f, %3.2f)\tCent: (%3.2f, %3.2f)\tPrev: (%3.2f, %3.2f)\n',...
         accum(1), accum(2), cent(1), cent(2), prev(1), prev(2));
+    %fprintf(1, '\tp_roi: (%3.2f, %3.2f)\tp_kern: (%3.2f, %3.2f)\n',...
+    %    p_roi(1), p_roi(2), p_kern(1), p_kern(2));
 
     prev = cent;
 
-    %figure(2), hold on, plot(cent(1), cent(2), '*r');
-    x(i-1) = p_roi(1) + cent(1);
-    y(i-1) = p_roi(2) + cent(2);
+    xy(i-1, 1:2) = p_roi(1:2) + cent;
 
-    if(max(abs(accum)) >= 1)
-        fprintf(1, '%3d:\tMoved kernel by (%3.2f, %3.2f)\n', i, floor(accum(1)), ...
-            floor(accum(2)));
-        p_kern(1:2) = p_kern(1:2) + floor(accum); % Accum is relative to both p_kern 
-        % original position and p_roi. It is RELATIVE shift 
-        accum = accum - floor(accum); % Retain the fractional part of the movement
-    end
+    %if(max(abs(accum)) >= 1)
+    %    fprintf(1, '%3d:\tMoved kernel by (%3.2f, %3.2f)\n', i, floor(accum(1)), ...
+    %        floor(accum(2)));
+    %    p_kern(1:2) = p_kern(1:2) + floor(accum); % Accum is relative to both p_kern 
+    %    % original position and p_roi. It is RELATIVE shift 
+    %    accum = accum - floor(accum); % Retain the fractional part of the movement
+    %end
     
     % Recenter Kernel
 %    if( max(abs(accum)) > max(p_kern(3:4)./8) ) 
@@ -110,9 +114,11 @@ for i = 2:length(imgs) % Process each image
    
 
     pause(0.1);
-    kern = imcrop(img, p_kern);
+    % Note, the x and y are reversed
+    kern = img(p_kern(2):p_kern(2)+p_kern(4), p_kern(1):p_kern(1)+p_kern(3)); 
 end
 
 %figure, plot(x, y, 'r');
-%figure, scatter(1:length(x), x, 'r');
+figure, scatter(1:length(xy), xy(:,1), 'r');
+hold on, plot(1:length(xy), xy(:,1), 'k');
 %hold on, scatter(1:length(y), y), 'g';
