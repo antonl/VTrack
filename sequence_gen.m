@@ -17,7 +17,7 @@ i0 = 1;
 part = 10;
 
 % Motion of the particle, (x, y)
-pos = @(t) [100 + 0.25.*floor(0.1.*t), 200];  
+pos = @(t) [100 + 2.*floor(0.1.*t), 200];  
 
 % % % % % % % % % % % % % % 
 % Start image generation
@@ -26,7 +26,7 @@ pos = @(t) [100 + 0.25.*floor(0.1.*t), 200];
 for t = 0:len-1
     [X, Y] = meshgrid(1:sz(1), 1:sz(2));
     img = gaussian(X, Y, pos(t), part, i0); 
-    disp(pos(t));
+    %disp(pos(t));
     %imshow(img);
     %pause
     imwrite(img, sprintf('%simg%3d.tif', path, t), 'tiff');

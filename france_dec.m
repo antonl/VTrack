@@ -31,7 +31,6 @@ catch
     error('Failed to draw ROI and things');
 end
 
-
 kern = imcrop(img, p_kern); % Set initial kernel
 
 close(h); % Close figure
@@ -84,13 +83,13 @@ for i = 2:length(imgs) % Process each image
 
     xy(i-1, 1:2) = p_roi(1:2) + cent;
 
-    %if(max(abs(accum)) >= 1)
-    %    fprintf(1, '%3d:\tMoved kernel by (%3.2f, %3.2f)\n', i, floor(accum(1)), ...
-    %        floor(accum(2)));
-    %    p_kern(1:2) = p_kern(1:2) + floor(accum); % Accum is relative to both p_kern 
-    %    % original position and p_roi. It is RELATIVE shift 
-    %    accum = accum - floor(accum); % Retain the fractional part of the movement
-    %end
+    if(max(abs(accum)) >= 1)
+        fprintf(1, '%3d:\tMoved kernel by (%3.2f, %3.2f)\n', i, floor(accum(1)), ...
+            floor(accum(2)));
+        p_kern(1:2) = p_kern(1:2) + floor(accum); % Accum is relative to both p_kern 
+        % original position and p_roi. It is RELATIVE shift 
+        accum = accum - floor(accum); % Retain the fractional part of the movement
+    end
     
     % Recenter Kernel
 %    if( max(abs(accum)) > max(p_kern(3:4)./8) ) 
@@ -111,11 +110,11 @@ for i = 2:length(imgs) % Process each image
     imshow(img); 
     rectangle('Position', p_roi, 'EdgeColor', 'g');
     rectangle('Position', p_kern, 'EdgeColor', 'r');
-   
+    rectangle('Position', [sz(1)-dsz(2) sz(2)-dsz(1) dsz(2) dsz(1)], 'EdgeColor', 'w'); 
 
     pause(0.1);
     % Note, the x and y are reversed
-    kern = img(p_kern(2):p_kern(2)+p_kern(4), p_kern(1):p_kern(1)+p_kern(3)); 
+%    kern = img(p_kern(2):p_kern(2)+p_kern(4), p_kern(1):p_kern(1)+p_kern(3)); 
 end
 
 %figure, plot(x, y, 'r');
