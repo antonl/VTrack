@@ -1,11 +1,12 @@
 clear all;
 close all;
 
-thresh = 0.2;
+thresh = 0.8;
 
 % Load all images
-path = 'timage_jump\';
-imgs = dir([path 'img*']); % Select proper series with wildcards
+path = 'FranceStage\';
+%path = 'timage_jump\';
+imgs = dir([path '2nmStep*']); % Select proper series with wildcards
 % Space in the name above is important
 
 global kern roi;
@@ -25,8 +26,8 @@ try
     rrect.setColor('r');
     rrect.setResizable(false);
 
-    p_roi = floor(rrect.getPosition);
-    p_kern = floor(krect.getPosition);
+    p_roi = round(rrect.getPosition);
+    p_kern = round(krect.getPosition);
 catch
     error('Failed to draw ROI and things');
 end
@@ -37,11 +38,15 @@ close(h); % Close figure
 xy = zeros(length(imgs)-1,2); % x-positions
 
 accum = [0 0]; % Accumulated movement
-prev = floor([-p_roi(1)+p_kern(1)+p_kern(3)/2 -p_roi(2)+p_kern(2)+p_kern(4)/2]); % Previous calculated center of mass
+prev = round([-p_roi(1)+p_kern(1)+p_kern(3)/2 -p_roi(2)+p_kern(2)+p_kern(4)/2]); % Previous calculated center of mass
 % Initial guess - center of kernel
 
 for i = 2:length(imgs) % Process each image
-    img = imread([path imgs(i).name]); % Width, Height
+    try
+        img = imread([path imgs(i).name]); % Width, Height
+    catch 
+        % Handle could not load image problem here
+    end
     roi = img(p_roi(2):p_roi(2)+p_roi(4), p_roi(1):p_roi(1)+p_roi(3)); 
     % this gives all pixels fully and partially enclosed
    
@@ -72,7 +77,9 @@ for i = 2:length(imgs) % Process each image
     assert(all(cent > 0) && all(prev > 0), 'Cent or Prev negative');
     
     % Cm is relative to p_roi location
-    accum = accum + cent - prev;
+    if(i >2) % The first shift is due to a guess of the position center. Don't accumulate that 
+        accum = accum + cent - prev;
+    end
 
     fprintf(1, 'Accum: (%3.2f, %3.2f)\tCent: (%3.2f, %3.2f)\tPrev: (%3.2f, %3.2f)\n',...
         accum(1), accum(2), cent(1), cent(2), prev(1), prev(2));
@@ -84,17 +91,20 @@ for i = 2:length(imgs) % Process each image
     xy(i-1, 1:2) = p_roi(1:2) + cent;
 
     if(max(abs(accum)) >= 1)
-        fprintf(1, '%3d:\tMoved kernel by (%3.2f, %3.2f)\n', i, floor(accum(1)), ...
-            floor(accum(2)));
-        p_kern(1:2) = p_kern(1:2) + floor(accum); % Accum is relative to both p_kern 
+        fprintf(1, '%3d:\tMoved kernel by (%3.2f, %3.2f)\n', i, round(accum(1)), ...
+            round(accum(2)));
+        p_kern(1:2) = p_kern(1:2) + round(accum); % Accum is relative to both p_kern 
         % original position and p_roi. It is RELATIVE shift 
-        accum = accum - floor(accum); % Retain the fractional part of the movement
+        accum = accum - round(accum); % Retain the fractional part of the movement
+        
+        % Update kernel when it is moved by a fractional amount
+        %kern = img(p_kern(2):p_kern(2)+p_kern(4), p_kern(1):p_kern(1)+p_kern(3)); 
     end
     
     % Recenter Kernel
 %    if( max(abs(accum)) > max(p_kern(3:4)./8) ) 
-%        fprintf(1, '\t\t Moved ROI by (%3.2f, %3.2f)\n', floor(accum(1)), floor(accum(2)));
-%        p_roi(1:2) = p_roi(1:2) + floor(accum); % center ROI on CM 
+%        fprintf(1, '\t\t Moved ROI by (%3.2f, %3.2f)\n', round(accum(1)), round(accum(2)));
+%        p_roi(1:2) = p_roi(1:2) + round(accum); % center ROI on CM 
 %        accum = [0 0]; % Reset accum
 %    end
 
@@ -105,12 +115,12 @@ for i = 2:length(imgs) % Process each image
     % Paste correlation image into original image
     sz = size(img);
     dsz = size(dat);
-    img(sz(2) - dsz(1) + 1:sz(2), sz(1) - dsz(2) + 1:sz(1)) = dat.*255;
+    %img(sz(2) - dsz(2) + 1:sz(2), sz(1) - dsz(1) + 1:sz(1)) = dat.*255;
     
     imshow(img); 
     rectangle('Position', p_roi, 'EdgeColor', 'g');
     rectangle('Position', p_kern, 'EdgeColor', 'r');
-    rectangle('Position', [sz(1)-dsz(2) sz(2)-dsz(1) dsz(2) dsz(1)], 'EdgeColor', 'w'); 
+    rectangle('Position', [sz(2)-dsz(1) sz(1)-dsz(2) dsz(2) dsz(1)], 'EdgeColor', 'w'); 
 
     pause(0.1);
     % Note, the x and y are reversed
