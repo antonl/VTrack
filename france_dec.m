@@ -6,7 +6,8 @@ thresh = 0.8;
 % Load all images
 path = 'FranceStage\';
 %path = 'timage_jump\';
-imgs = dir([path '2nmStep*']); % Select proper series with wildcards
+%imgs = dir([path 'img*']);
+imgs = dir([path '5nmstep*']); % Select proper series with wildcards
 % Space in the name above is important
 
 global kern roi;
@@ -115,12 +116,12 @@ for i = 2:length(imgs) % Process each image
     % Paste correlation image into original image
     sz = size(img);
     dsz = size(dat);
-    %img(sz(2) - dsz(2) + 1:sz(2), sz(1) - dsz(1) + 1:sz(1)) = dat.*255;
+    img(sz(1) - dsz(1)+1:sz(1), sz(2) - dsz(2)+1:sz(2)) = dat.*255;
     
     imshow(img); 
     rectangle('Position', p_roi, 'EdgeColor', 'g');
     rectangle('Position', p_kern, 'EdgeColor', 'r');
-    rectangle('Position', [sz(2)-dsz(1) sz(1)-dsz(2) dsz(2) dsz(1)], 'EdgeColor', 'w'); 
+    rectangle('Position', [sz(2)-dsz(2)+1 sz(1)-dsz(1)+1 dsz(2) dsz(1)], 'EdgeColor', 'w');
 
     pause(0.1);
     % Note, the x and y are reversed
