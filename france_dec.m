@@ -65,14 +65,27 @@ for i = 2:length(imgs) % Process each image
     mval = max(dat(:));
     dat = dat./mval; % Normalize
 
-    try
-        s = regionprops(dat > thresh, dat, 'WeightedCentroid');
-        if(isempty(s))
-            error('Could not calculate region props');
-        end
-        cent = s.WeightedCentroid; % Center of mass is relative to the edge of the ROI box
-    catch
-    end
+    %try
+%        s = regionprops(dat > thresh, dat, 'WeightedCentroid');
+%        if(isempty(s))
+%            error('Could not calculate region props');
+%        end
+%        cent = s.WeightedCentroid; % Center of mass is relative to the edge of the ROI box
+        % Initial guess of center is previous point
+        guessval = [1 30 prev];
+        
+        
+        % Get data points 
+        [pos(:, :, 1) pos(:, :, 2)] = meshgrid(1:p_roi(3)+1,1:p_roi(4)+1); 
+
+        lb = [0 1 prev(1)-p_roi(3)/2 prev(2)-p_roi(4)/2]; % Guess at lower bound and upper bound
+        ub = [2 100 prev(1)+p_roi(3)/2 prev(2)+p_roi(4)/2]; 
+
+        opts = optimset('TolX', 1e-7, 'TolFun', 1e-7);
+        fit_val = lsqcurvefit(@gaussian_fitfcn, guessval, pos, dat, lb, ub, opts ); 
+        cent(1:2) = fit_val(3:4);
+    %catch
+    %end
    
     % Get accumuated movement, update previous cm
     assert(all(cent > 0) && all(prev > 0), 'Cent or Prev negative');

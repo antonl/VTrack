@@ -17,7 +17,7 @@ i0 = 1;
 part = 10;
 
 % Motion of the particle, (x, y)
-pos = @(t) [100 + 0.54.*floor(0.2.*t), 200];  
+pos = @(t) [100 + 0.1.*floor(0.2.*t), 200];  
 
 % % % % % % % % % % % % % % 
 % Start image generation
