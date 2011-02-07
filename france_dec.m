@@ -81,7 +81,7 @@ for i = 2:length(imgs) % Process each image
         lb = [0 1 prev(1)-p_roi(3)/2 prev(2)-p_roi(4)/2]; % Guess at lower bound and upper bound
         ub = [2 100 prev(1)+p_roi(3)/2 prev(2)+p_roi(4)/2]; 
 
-        opts = optimset('TolX', 1e-7, 'TolFun', 1e-7);
+        opts = optimset('TolX', 1e-8, 'TolFun', 1e-8);
         fit_val = lsqcurvefit(@gaussian_fitfcn, guessval, pos, dat, lb, ub, opts ); 
         cent(1:2) = fit_val(3:4);
     %catch
