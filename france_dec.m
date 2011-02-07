@@ -4,10 +4,10 @@ close all;
 thresh = 0.8;
 
 % Load all images
-path = 'FranceStage\';
-%path = 'timage_jump\';
-%imgs = dir([path 'img*']);
-imgs = dir([path '5nmstep*']); % Select proper series with wildcards
+%path = 'FranceStage\';
+path = 'timage_jump\';
+imgs = dir([path 'img*']);
+%imgs = dir([path '5nmstep*']); % Select proper series with wildcards
 % Space in the name above is important
 
 global kern roi;
@@ -131,4 +131,6 @@ end
 %figure, plot(x, y, 'r');
 figure, scatter(1:length(xy), xy(:,1), 'r');
 hold on, plot(1:length(xy), xy(:,1), 'k');
+
+
 %hold on, scatter(1:length(y), y), 'g';
