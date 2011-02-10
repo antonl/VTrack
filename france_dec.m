@@ -1,13 +1,13 @@
 clear all;
 close all;
 
-thresh = 0.8;
+thresh = 0.6;
 
 % Load all images
-%path = 'FranceStage\';
-path = 'timage_jump\';
-imgs = dir([path 'img*']);
-%imgs = dir([path '5nmstep*']); % Select proper series with wildcards
+path = 'FranceStage\';
+%path = 'timage_jump\';
+%imgs = dir([path 'img*']);
+imgs = dir([path '2nmstep *']); % Select proper series with wildcards
 % Space in the name above is important
 
 global kern roi;
@@ -71,10 +71,13 @@ for i = 2:length(imgs) % Process each image
 %            error('Could not calculate region props');
 %        end
 %        cent = s.WeightedCentroid; % Center of mass is relative to the edge of the ROI box
+        
+        % Threshold the data
+        dat = (dat > thresh).*dat;
+    
         % Initial guess of center is previous point
         guessval = [1 30 prev];
-        
-        
+       
         % Get data points 
         [pos(:, :, 1) pos(:, :, 2)] = meshgrid(1:p_roi(3)+1,1:p_roi(4)+1); 
 
@@ -145,5 +148,7 @@ end
 figure, scatter(1:length(xy), xy(:,1), 'r');
 hold on, plot(1:length(xy), xy(:,1), 'k');
 
+xlabel('Frame Number');
+ylabel('X Position');
 
 %hold on, scatter(1:length(y), y), 'g';
