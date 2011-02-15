@@ -25,14 +25,15 @@ classdef HBoxFlex < uiextras.HBox
     %             uiextras.Grid
     
     %   Copyright 2009-2010 The MathWorks, Inc.
-    %   $Revision: 324 $
-    %   $Date: 2010-08-06 16:30:39 +0100 (Fri, 06 Aug 2010) $
+    %   $Revision: 354 $
+    %   $Date: 2010-11-01 10:07:13 +0000 (Mon, 01 Nov 2010) $
     
     properties
         ShowMarkings = 'on'  % Show markings on the draggable dividers [ on | off ]
     end % public methods
     
     properties (SetAccess=private,GetAccess=private)
+        Dividers = []
         SelectedDivider = -1
     end % private properties
     
@@ -42,7 +43,7 @@ classdef HBoxFlex < uiextras.HBox
             % First step is to create the parent class. We pass the
             % arguments (if any) just incase the parent needs setting
             obj@uiextras.HBox( varargin{:} );
-
+            
             % Set some defaults
             obj.setPropertyFromDefault( 'ShowMarkings' );
             
@@ -67,46 +68,59 @@ classdef HBoxFlex < uiextras.HBox
             obj.redraw();
         end % set.ShowMarkings
     end % accessor methods
-        
+    
     methods( Access = protected )
         
         function redraw( obj )
             %REDRAW  Redraw container contents.
-
-            % Remove dividers before computing sizes so that the dividers
-            % don't appear as children
-            delete( findall( obj.UIContainer, 'Tag', 'UIExtras:HBoxFlex:Divider' ) );
-
-            % Now simply call the grid redraw
+            
+            % First call the grid redraw
             [widths,heights] = redraw@uiextras.HBox(obj);
             sizes = obj.Sizes;
             children = obj.getValidChildren();
             nChildren = numel( children );
             padding = obj.Padding;
             spacing = obj.Spacing;
-
-            % Now also add some dividers
+            
+            % Now also add/update some dividers
             mph = uiextras.MousePointerHandler( obj.Parent );
+            numDynamic = 0;
             for ii = 1:nChildren-1
                 if any(sizes(1:ii)<0) && any(sizes(ii+1:end)<0)
+                    numDynamic = numDynamic + 1;
                     % Both dynamic, so add a divider
                     position = [sum( widths(1:ii) ) + padding + spacing * (ii-1) + 1, ...
                         padding + 1, ...
                         max(1,spacing), ...
                         heights(ii)];
                     % Create the divider widget
-                    uic = uiextras.makeFlexDivider( ...
-                        obj.UIContainer, ...
-                        position, ...
-                        get( obj.UIContainer, 'BackgroundColor' ), ...
-                        'Vertical', ...
-                        obj.ShowMarkings );
-                    set( uic, 'ButtonDownFcn', @obj.onButtonDown, ...
-                        'Tag', 'UIExtras:HBoxFlex:Divider' );
-                    setappdata( uic, 'WhichDivider', ii );
-                    % Add it to the mouse-over handler
-                    mph.register( uic, 'left' );
+                    if numDynamic > numel( obj.Dividers )
+                        obj.Dividers(numDynamic) = uiextras.makeFlexDivider( ...
+                            obj.UIContainer, ...
+                            position, ...
+                            get( obj.UIContainer, 'BackgroundColor' ), ...
+                            'Vertical', ...
+                            obj.ShowMarkings );
+                        set( obj.Dividers(numDynamic), 'ButtonDownFcn', @obj.onButtonDown, ...
+                            'Tag', 'UIExtras:HBoxFlex:Divider' );
+                        % Add it to the mouse-over handler
+                        mph.register( obj.Dividers(numDynamic), 'left' );
+                    else
+                        % Just update an existing divider
+                        uiextras.makeFlexDivider( ...
+                            obj.Dividers(numDynamic), ...
+                            position, ...
+                            get( obj.UIContainer, 'BackgroundColor' ), ...
+                            'Vertical', ...
+                            obj.ShowMarkings );
+                    end
+                    setappdata( obj.Dividers(numDynamic), 'WhichDivider', ii );
                 end
+            end
+            % Remove any excess dividers
+            if numel( obj.Dividers ) > numDynamic
+                delete( obj.Dividers(numDynamic+1:end) );
+                obj.Dividers(numDynamic+1:end) = [];
             end
         end % redraw
         
@@ -165,12 +179,27 @@ classdef HBoxFlex < uiextras.HBox
         end % onButtonDown
         
         function onButtonMotion( obj, source, eventData ) %#ok<INUSD>
+            % First capture the current cursor position
             figh = ancestor( source, 'figure' );
             cursorpos = get( figh, 'CurrentPoint' );
             pos0 = getpixelposition( obj.UIContainer, true );
-            dividerpos = get( obj.SelectedDivider, 'Position' );
-            dividerpos(1) = cursorpos(1) - pos0(1) - round(obj.Spacing/2) + 1;
-            set( obj.SelectedDivider, 'Position', dividerpos );
+            
+            % We need to gaurd against the focus having been lost. In this
+            % case we should have received a button-up event, but sometimes
+            % don't (at least on Windows).
+            if ishandle( obj.SelectedDivider )
+                % All OK, so move it
+                dividerpos = get( obj.SelectedDivider, 'Position' );
+                dividerpos(1) = cursorpos(1) - pos0(1) - round(obj.Spacing/2) + 1;
+                set( obj.SelectedDivider, 'Position', dividerpos );
+            else
+                % Divider has been lost, so we are in a bad state. The
+                % best we can do is kill the callbacks and attempt to put
+                % the figure back in a decent state.
+                set( figh, 'Pointer', 'arrow', ...
+                    'WindowButtonMotionFcn', [], ...
+                    'WindowButtonUpFcn', [] );
+            end
         end % onButtonMotion
         
         function onButtonUp( obj, source, eventData, oldFigProps, oldState )

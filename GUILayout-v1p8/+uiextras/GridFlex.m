@@ -33,15 +33,17 @@ classdef GridFlex < uiextras.Grid
     %             uiextras.Empty
     
     %   Copyright 2009-2010 The MathWorks, Inc.
-    %   $Revision: 340 $
-    %   $Date: 2010-09-24 17:07:37 +0100 (Fri, 24 Sep 2010) $
+    %   $Revision: 354 $
+    %   $Date: 2010-11-01 10:07:13 +0000 (Mon, 01 Nov 2010) $
     
     properties
         ShowMarkings = 'on'  % Show markings on the draggable dividers [ on | off ]
     end % public methods
     
     properties( SetAccess = private, GetAccess = private )
+        RowDividers = []
         SelectedRowDivider = -1
+        ColumnDividers = []
         SelectedColumnDivider = -1
     end % private properties
     
@@ -94,53 +96,86 @@ classdef GridFlex < uiextras.Grid
             pos0 = ceil( getpixelposition( obj.UIContainer ) );
             
             % Now add the column dividers
-            delete( findall( obj.Parent, 'Tag', 'UIExtras:GridFlex:ColumnDivider', 'Parent', obj.UIContainer ) );
             mph = uiextras.MousePointerHandler( obj.Parent );
+            numDynamic = 0;
             for ii = 1:numel(columnSizes)-1
                 if any(columnSizes(1:ii)<0) && any(columnSizes(ii+1:end)<0)
+                    numDynamic = numDynamic + 1;
                     % Both dynamic, so add a divider
                     position = [sum( widths(1:ii) ) + padding + spacing * (ii-1) + 1, ...
                         padding + 1, ...
                         max(1,spacing), ...
                         max(1,pos0(4)-2*padding)];
-                    % Create the divider widget
-                    uic = uiextras.makeFlexDivider( ...
-                        obj.UIContainer, ...
-                        position, ...
-                        get( obj.UIContainer, 'BackgroundColor' ), ...
-                        'Vertical', ...
-                        obj.ShowMarkings );
-                    set( uic, 'ButtonDownFcn', @obj.onColumnButtonDown, ...
-                        'Tag', 'UIExtras:GridFlex:ColumnDivider' );
-                    setappdata( uic, 'WhichDivider', ii );
-                    % Add it to the mouse-over handler
-                    mph.register( uic, 'left' );
+                                        % Create the divider widget
+                    if numDynamic > numel( obj.ColumnDividers )
+                        obj.ColumnDividers(numDynamic) = uiextras.makeFlexDivider( ...
+                            obj.UIContainer, ...
+                            position, ...
+                            get( obj.UIContainer, 'BackgroundColor' ), ...
+                            'Vertical', ...
+                            obj.ShowMarkings );
+                        set( obj.ColumnDividers(numDynamic), 'ButtonDownFcn', @obj.onColumnButtonDown, ...
+                            'Tag', 'UIExtras:GridFlex:ColumnDivider' );
+                        % Add it to the mouse-over handler
+                        mph.register( obj.ColumnDividers(numDynamic), 'left' );
+                    else
+                        % Just update an existing divider
+                        uiextras.makeFlexDivider( ...
+                            obj.ColumnDividers(numDynamic), ...
+                            position, ...
+                            get( obj.UIContainer, 'BackgroundColor' ), ...
+                            'Vertical', ...
+                            obj.ShowMarkings );
+                    end
+                    setappdata( obj.ColumnDividers(numDynamic), 'WhichDivider', ii );
                 end
+            end
+            % Remove any excess dividers
+            if numel( obj.ColumnDividers ) > numDynamic
+                delete( obj.ColumnDividers(numDynamic+1:end) );
+                obj.ColumnDividers(numDynamic+1:end) = [];
             end
             
             % Now add the row dividers
-            delete( findall( obj.Parent, 'Tag', 'UIExtras:GridFlex:RowDivider', 'Parent', obj.UIContainer ) );
+            numDynamic = 0;
             for ii = 1:numel(rowSizes)-1
                 if any(rowSizes(1:ii)<0) && any(rowSizes(ii+1:end)<0)
+                    numDynamic = numDynamic + 1;
                     % Both dynamic, so add a divider
                     position = [padding + 1, ...
                         pos0(4) - sum( heights(1:ii) ) - padding - spacing*ii + 1, ...
                         max(1,pos0(3)-2*padding), ...
                         max(1,spacing)];
                     % Create the divider widget
-                    uic = uiextras.makeFlexDivider( ...
-                        obj.UIContainer, ...
-                        position, ...
-                        get( obj.UIContainer, 'BackgroundColor' ), ...
-                        'Horizontal', ...
-                        obj.ShowMarkings );
-                    set( uic, 'ButtonDownFcn', @obj.onRowButtonDown, ...
-                        'Tag', 'UIExtras:GridFlex:RowDivider' );
-                    setappdata( uic, 'WhichDivider', ii );
-                    % Add it to the mouse-over handler
-                    mph.register( uic, 'top' );
+                    if numDynamic > numel( obj.RowDividers )
+                        obj.RowDividers(numDynamic) = uiextras.makeFlexDivider( ...
+                            obj.UIContainer, ...
+                            position, ...
+                            get( obj.UIContainer, 'BackgroundColor' ), ...
+                            'Horizontal', ...
+                            obj.ShowMarkings );
+                        set( obj.RowDividers(numDynamic), 'ButtonDownFcn', @obj.onRowButtonDown, ...
+                            'Tag', 'UIExtras:GridFlex:RowDivider' );
+                        % Add it to the mouse-over handler
+                        mph.register( obj.RowDividers(numDynamic), 'top' );
+                    else
+                        % Just update an existing divider
+                        uiextras.makeFlexDivider( ...
+                            obj.RowDividers(numDynamic), ...
+                            position, ...
+                            get( obj.UIContainer, 'BackgroundColor' ), ...
+                            'Horizontal', ...
+                            obj.ShowMarkings );
+                    end
+                    setappdata( obj.RowDividers(numDynamic), 'WhichDivider', ii );
                 end
             end
+            % Remove any excess dividers
+            if numel( obj.RowDividers ) > numDynamic
+                delete( obj.RowDividers(numDynamic+1:end) );
+                obj.RowDividers(numDynamic+1:end) = [];
+            end
+
         end % redraw
         
         function onRowButtonDown( obj, source, eventData ) %#ok<INUSD>
@@ -156,7 +191,7 @@ classdef GridFlex < uiextras.Grid
             oldProps.WindowButtonUpFcn = get( figh, 'WindowButtonUpFcn' );
             oldProps.Pointer = get( figh, 'Pointer' );
             oldProps.Units = get( figh, 'Units' );
-
+            
             % Make sure all interaction modes are off to prevent our
             % callbacks being clobbered
             zoomh = zoom( figh );
@@ -206,9 +241,22 @@ classdef GridFlex < uiextras.Grid
             figh = ancestor( source, 'figure' );
             cursorpos = get( figh, 'CurrentPoint' );
             dividerpos = get( obj.SelectedRowDivider, 'Position' );
-            pos0 = getpixelposition( obj.UIContainer, true );
-            dividerpos(2) = cursorpos(2) - pos0(2) - round(obj.Spacing/2) + 1;
-            set( obj.SelectedRowDivider, 'Position', dividerpos );
+            
+            % We need to gaurd against the focus having been lost. In this
+            % case we should have received a button-up event, but sometimes
+            % don't (at least on Windows).
+            if ishandle( obj.SelectedRowDivider )
+                pos0 = getpixelposition( obj.UIContainer, true );
+                dividerpos(2) = cursorpos(2) - pos0(2) - round(obj.Spacing/2) + 1;
+                set( obj.SelectedRowDivider, 'Position', dividerpos );
+            else
+                % Divider has been lost, so we are in a bad state. The
+                % best we can do is kill the callbacks and attempt to put
+                % the figure back in a decent state.
+                set( figh, 'Pointer', 'arrow', ...
+                    'WindowButtonMotionFcn', [], ...
+                    'WindowButtonUpFcn', [] );
+            end
         end % onRowButtonMotion
         
         function onRowButtonUp( obj, source, eventData, oldFigProps, oldState )
@@ -323,10 +371,23 @@ classdef GridFlex < uiextras.Grid
         function onColumnButtonMotion( obj, source, eventData ) %#ok<INUSD>
             figh = ancestor( source, 'figure' );
             cursorpos = get( figh, 'CurrentPoint' );
-            dividerpos = get( obj.SelectedColumnDivider, 'Position' );
-            pos0 = getpixelposition( obj.UIContainer, true );
-            dividerpos(1) = cursorpos(1) - pos0(1) - round(obj.Spacing/2) + 1;
-            set( obj.SelectedColumnDivider, 'Position', dividerpos );
+            
+            % We need to gaurd against the focus having been lost. In this
+            % case we should have received a button-up event, but sometimes
+            % don't (at least on Windows).
+            if ishandle( obj.SelectedColumnDivider )
+                dividerpos = get( obj.SelectedColumnDivider, 'Position' );
+                pos0 = getpixelposition( obj.UIContainer, true );
+                dividerpos(1) = cursorpos(1) - pos0(1) - round(obj.Spacing/2) + 1;
+                set( obj.SelectedColumnDivider, 'Position', dividerpos );
+            else
+                % Divider has been lost, so we are in a bad state. The
+                % best we can do is kill the callbacks and attempt to put
+                % the figure back in a decent state.
+                set( figh, 'Pointer', 'arrow', ...
+                    'WindowButtonMotionFcn', [], ...
+                    'WindowButtonUpFcn', [] );
+            end
         end % onColumnButtonMotion
         
         function onColumnButtonUp( obj, source, eventData, oldFigProps, oldState )

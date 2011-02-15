@@ -14,8 +14,8 @@ classdef Container < hgsetget
     %             uiextras.Grid
     
     %   Copyright 2009-2010 The MathWorks, Inc.
-    %   $Revision: 348 $
-    %   $Date: 2010-10-22 09:45:13 +0100 (Fri, 22 Oct 2010) $
+    %   $Revision: 355 $
+    %   $Date: 2010-11-02 10:00:39 +0000 (Tue, 02 Nov 2010) $
     
     properties
         DeleteFcn       % function to call when the layout is being deleted [function handle]
@@ -75,12 +75,7 @@ classdef Container < hgsetget
                 'BorderType', 'none'
                 };
             obj.UIContainer = uipanel( args{:} );
-            
-            % Add and immediately remove a title to prevent it registering
-            % later
-            set( obj.UIContainer, 'Title', ' ' );
-            set( obj.UIContainer, 'Title', '' );
-            
+                        
             % Set the background color
             obj.setPropertyFromDefault( 'BackgroundColor' );
             
@@ -336,7 +331,7 @@ classdef Container < hgsetget
                     set( child, propname, position );
                 elseif strcmpi( oldunits, 'Normalized' )
                     % Convert pixels to normalized before setting
-                    myPos = getpixelposition( obj );
+                    myPos = getpixelposition( obj.UIContainer );
                     w = myPos(3);
                     h = myPos(4);
                     % Since pixel position [1,1] is equivalent to
@@ -400,6 +395,15 @@ classdef Container < hgsetget
                 return;
             end
             
+            % We don't want to do anything to the panel title
+            if isappdata( obj.UIContainer, 'PanelTitleCreate' ) ...
+                    && getappdata( obj.UIContainer, 'PanelTitleCreate' )
+                % This child is the panel label. Set its visibility off so
+                % we don't see it again.
+                set( child, 'HandleVisibility', 'off' );
+                return;
+            end
+            
             % We also need to ignore legends as they are positioned by
             % their associated axes.
             if isa( child, 'axes' ) && strcmpi( get( child, 'Tag' ), 'legend' )
@@ -422,9 +426,9 @@ classdef Container < hgsetget
             end
             
             % We are taking over management of position and will do it
-            % in either pixel or normalized units
+            % in either pixel or normalized units.
             units = lower( get( child, 'Units' ) );
-            if ~ismember( units, {'pixels','normalized'} )
+            if ~ismember( units, {'pixels' ,'normalized'} )
                 set( child, 'Units', 'Pixels' );
             end
             

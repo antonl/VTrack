@@ -14,11 +14,14 @@ function [version, versionDate] = layoutVersion()
 %   See also: layoutRoot
 
 %   Copyright 2009-2010 The MathWorks Ltd.
-%   $Revision: 349 $    
-%   $Date: 2010-10-22 09:47:54 +0100 (Fri, 22 Oct 2010) $
+%   $Revision: 356 $    
+%   $Date: 2010-11-02 10:02:00 +0000 (Tue, 02 Nov 2010) $
 
-version = '1.7';
-versionDate = '2010-10-22';
+version = '1.8';
+versionDate = '2010-11-02';
+
+% version = '1.7';
+% versionDate = '2010-10-22';
 
 % version = '1.6';
 % versionDate = '2010-09-24';

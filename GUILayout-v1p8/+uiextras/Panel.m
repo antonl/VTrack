@@ -93,7 +93,12 @@ classdef Panel < uiextras.CardPanel & uiextras.DecoratedPanel
         function set.Title( obj, value )
             % Only need to redraw if changing to/from empty
             oldValue = get( obj.UIContainer, 'Title' );
+            % Unfortunately setting the title creates a uicontrol that
+            % isn't tagged, so we have to set a flag so that we know to
+            % ignore it for resize purposes
+            setappdata( obj.UIContainer, 'PanelTitleCreate', true );
             set( obj.UIContainer, 'Title', value );
+            rmappdata( obj.UIContainer, 'PanelTitleCreate' );
             if isempty( value ) && ~isempty( oldValue )
                 obj.redraw();
             elseif isempty( oldValue ) && ~isempty( value )
