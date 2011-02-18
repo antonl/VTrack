@@ -16,9 +16,9 @@ function TrackerGUI(func)
             return
         end
 
-        %set_callbacks;    
+        set_callbacks(gui);    
 
-        set(gui.Window, 'Visible', 'on');
+        %set(gui.Window, 'Visible', 'on');
     else
         try
             feval(func, gui);
@@ -26,6 +26,11 @@ function TrackerGUI(func)
             disp(lasterr);
         end
     end
+end
+
+function set_callbacks(gui)
+%% Attach buttons and things to function callbacks
+
 end
 
 function g = initialize
@@ -89,14 +94,21 @@ set(g1, 'RowSizes', [30 30 30 30 30 30 30 30 -1 30], 'ColumnSizes', [-1 -1]);
 %set(g.Window, 'Visible', '');
 end
 
-function v = create_video
+function v = create_video(aId, dId)
 %% Initializes the video capture device using image acquisition toolkit
+% aId is the adaptor id
+% dId is the device id
+
+if(nargin < 2) % Use Default Device 
+    aId = 1;
+    dId = 1;
+end
 
 i_a = imaqhwinfo;
-i_b = imaqhwinfo(i_a.InstalledAdaptors{1});
-i_c = imaqhwinfo(i_a.InstalledAdaptors{1}, i_b.DeviceIDs{1});
+i_b = imaqhwinfo(i_a.InstalledAdaptors{aId});
+i_c = imaqhwinfo(i_a.InstalledAdaptors{aId}, i_b.DeviceIDs{dId});
 
-fprintf('Using adapter "%s", Device "%s"\n', i_a.InstalledAdaptors{1}, i_c.DeviceName);
+fprintf('Using adapter "%s", Device "%s"\n', i_a.InstalledAdaptors{aId}, i_c.DeviceName);
 fprintf('Supported formats: \n');
 
 for i = 1:numel(i_c.SupportedFormats);
@@ -107,6 +119,6 @@ for i = 1:numel(i_c.SupportedFormats);
 end
 fprintf('\n');
 
-v = videoinput(i_a.InstalledAdaptors{1}, i_b.DeviceIDs{1});
+v = videoinput(i_a.InstalledAdaptors{aId}, i_b.DeviceIDs{dId});
 end
 
