@@ -9,16 +9,16 @@ function TrackerGUI(func)
         gui = initialize; % Create the gui
         
         try
-            gui.Video = create_video;
-        catch
-            fprintf('Failed to create video capture device handle.\n\n');
-            disp(lasterr);
-            return
+            create_video(gui.Window);
+        catch e
+            fprintf('Failed to create video capture device handle.\n');
+            close(gui.Window);
+            rethrow(e);
         end
 
         set_callbacks(gui);    
 
-        %set(gui.Window, 'Visible', 'on');
+        set(gui.Window, 'Visible', 'on');
     else
         try
             feval(func, gui);
@@ -31,11 +31,13 @@ end
 function set_callbacks(gui)
 %% Attach buttons and things to function callbacks
 
+% Attach preview window
+v = getappdata(gui.Window, 'video'); % Get video object handle
+get(getselectedsource(v))
 end
 
 function g = initialize
 %% Creates components for default layout of the gui
-%
 sz = get(0, 'ScreenSize');
 dim = [1000 500]; % Size of figure window
 
@@ -58,7 +60,7 @@ g.Preview = axes('Parent', bp1, 'XLim', [0 800], 'YLim', [0 600], ...
 p1 = uiextras.BoxPanel('Parent', hbox1, 'Title', 'Capture Parameters');
 set(hbox1, 'Sizes', [-5 -2]);
 
-g1 = uiextras.Grid('Parent', p1);
+g1 = uiextras.Grid('Parent', p1, 'Padding', 10, 'Spacing', 5);
 
 % Column 1 of Grid
 uicontrol('Parent', g1, 'style', 'text', 'String', 'Exposure', 'HorizontalAlignment', 'Left');
@@ -90,25 +92,27 @@ uiextras.Empty('Parent', g1);
 
 set(g1, 'RowSizes', [30 30 30 30 30 30 30 30 -1 30], 'ColumnSizes', [-1 -1]);
 % End Grid
-
-%set(g.Window, 'Visible', '');
 end
 
-function v = create_video(aId, dId)
-%% Initializes the video capture device using image acquisition toolkit
+function v = create_video(h, aId, dId)
+%% Initializes the video capture device using image acquisition toolkit and stores video object in h appdata
+% h is the Main Figure Handle
 % aId is the adaptor id
 % dId is the device id
 
-if(nargin < 2) % Show dialog box 
+if(nargin == 1) % Show dialog box 
     gui = AdaptorGUI;
     set(gui.Window, 'Visible', 'on');
+    % Upon a close request, save the gui structure in 
+    set(gui.Window, 'CloseRequestFcn', {@AdaptorGUI_CloseCallback gui.Window h}); 
 
     uiwait(gui.Window);
-    
-    v = gui.Video;
-
-    close(gui.Window);
-elseif(nargin == 2)
+   
+    if(~isappdata(h, 'video'))
+        % Video was not successfully set
+        throw(MException('VideoError:SelectionCanceled', 'No device was selected through the GUI. Did you cancel the dialog?'));
+    end
+elseif(nargin == 3)
     try
         i_a = imaqhwinfo;
 
@@ -136,6 +140,7 @@ elseif(nargin == 2)
         fprintf('\n');
 
         v = videoinput(i_a.InstalledAdaptors{aId}, i_b.DeviceIDs{dId});
+        setappdata(h, 'video', v);
     catch 
         throw(MException('VideoError:CannotCreateVideo', 'Could not open selected video device. Are you sure it exists?'));
     end
@@ -145,6 +150,22 @@ end
 
 end
     
+function AdaptorGUI_CloseCallback(src, e, adapt_h, main_h)
+%% Close function for the adaptor device chooser gui
+% Copies the created video structure from main_gui
+try
+    gui_struct = getappdata(adapt_h, 'gui_struct');
+catch
+    delete(src); % Not actually sure if src is the figure. Let's hope...
+end
+
+if(isfield(gui_struct, 'Video'))
+    % Video was successfully created
+    % Copy it to main gui appdata
+    setappdata(main_gui, 'video', gui_struct.Video);
+end
+delete(adapt_h); % Actually close the figure
+end
 
 function h = AdaptorGUI(src, e, func)
     persistent adapt_gui;
