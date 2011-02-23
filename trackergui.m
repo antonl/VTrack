@@ -1,9 +1,14 @@
-function TrackerGUI(func)
+function TrackerGUI(src, e, func)
 %% A single entry-point for the gui code. Every callback is called through this function
 % Procedure taken from mathworks blog on the switchyard pattern.
 % http://www.mathworks.com/company/newsletters/news_notes/win00/prog_patterns.html
 
     persistent gui; % Contains structure with handles to important bits 
+
+    % Make sure multiple instances aren't run at the same time
+    if(nargin == 0 & isfield(gui, 'Window') & ishandle(gui.Window))
+        throw(MException('TrackerGUI:MultipleInstances', 'Cannot run multiple instances of this GUI'));
+    end
 
     if nargin == 0
         gui = initialize; % Create the gui
@@ -18,14 +23,31 @@ function TrackerGUI(func)
 
         set_callbacks(gui);    
 
+        set(gui.Window, 'CloseRequestFcn', {@TrackerGUI @TrackerGUIDelete_Callback});
         set(gui.Window, 'Visible', 'on');
     else
+        gui = getappdata(gui.Window, 'gui_struct');
+        
         try
-            feval(func, gui);
-        catch
-            disp(lasterr);
+            hgfeval(func, src, e, gui);
+        catch e
+            rethrow(e);
         end
     end
+end
+
+function TrackerGUIDelete_Callback(src, e, gui)
+    if(isappdata(gui.Window, 'video'))
+        v = getappdata(gui.Window, 'video');
+        stop(v);
+        
+        if(strcmp(get(v, 'Previewing'), 'on'))
+            close(gui.PreviewFig);
+        end
+    end
+
+    imaqreset;
+    delete(src);
 end
 
 function set_callbacks(gui)
@@ -33,32 +55,111 @@ function set_callbacks(gui)
 
 % Attach preview window
 v = getappdata(gui.Window, 'video'); % Get video object handle
-get(getselectedsource(v))
+input = getselectedsource(v);
+
+pr = propinfo(input);
+
+% Enable Gain, Exposure, and FrameRate controls, and set their callbacks
+if(isfield(pr, 'Gain'))
+    set(input, 'GainMode', 'Manual');
+    set(gui.GainCtrl, 'Enable', 'on', 'Callback', {@TrackerGUI @GainCtrl_Callback});
+else
+    set(gui.GainCtrl, 'Enable', 'off');
+end
+
+if(isfield(pr, 'Exposure'))
+    set(input, 'ExposureMode', 'Manual');
+    set(gui.ExposureCtrl, 'Enable', 'on', 'Callback', {@TrackerGUI @ExposureCtrl_Callback});
+else
+    set(gui.ExposureCtrl, 'Enable', 'off');
+end
+
+if(isfield(pr, 'FrameRate'))
+    set(gui.FrameRateCtrl, 'Enable', 'on', 'Callback', {@TrackerGUI @FrameRateCtrl_Callback});
+else
+    set(gui.FrameRateCtrl, 'Enable', 'off');
+end
+
+% Start Preview Callback 
+set(gui.StartPreviewBtn, 'Callback', {@TrackerGUI @StartPreviewBtn_Callback});
+
+setappdata(gui.Window, 'gui_struct', gui);
+end
+
+function StartPreviewBtn_Callback(src, e, gui)
+
+if(~isappdata(gui.Window, 'video'))
+    throw(MException('VideoError:VideoNotExist', 'Should not be previewing on a nonexistent videoinput object!'));
+else
+    v = getappdata(gui.Window, 'video');
+end
+
+if(strcmp(get(v, 'Previewing'), 'on')) % Preview is Running
+    %closepreview(v); % This is done in the close fcn for this figure
+    close(gui.PreviewFig);
+    set(gui.StartPreviewBtn, 'String', 'Start Preview');
+    setappdata(gui.Window, 'gui_struct', gui);
+else
+    margins = [20 20];
+    sz = get(0, 'ScreenSize');
+    
+    vRes = get(v, 'VideoResolution');
+
+    dim = vRes + margins;
+
+    gui.PreviewFig = figure('Visible', 'off', 'Name', 'Preview', 'NumberTitle', 'off', 'MenuBar', 'none', ...
+        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
+    ax = axes('Parent', gui.PreviewFig, 'XLim', [0 vRes(1)], 'YLim', [0 vRes(2)]);
+    gui.PreviewImage = image('Parent', ax, 'CData', zeros(vRes(2), vRes(1), 1));
+    truesize(gui.PreviewFig, [vRes(2) vRes(1)]);
+
+    % Create image for preview callback
+    setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
+    
+    preview(v, gui.PreviewImage);
+    set(gui.StartPreviewBtn, 'String', 'Stop Preview');
+    set(gui.PreviewFig, 'Visible', 'on');
+    
+    set(ax, 'Visible', 'on', 'Color', 'black');
+    setappdata(gui.Window, 'gui_struct', gui);
+end
+end
+
+function PreviewCloseFcn(src, e, gui)
+    % Somebody wants the preview window closed
+    if(~isappdata(gui.Window, 'video'))
+        throw(MException('VideoError:VideoNotExist', 'Should not be previewing on a nonexistent videoinput object!'));
+    else
+        v = getappdata(gui.Window, 'video');
+    end
+
+    if(strcmp(get(v, 'Previewing'), 'on')) % Preview is Running
+        closepreview(v);
+    end
+   
+    set(gui.StartPreviewBtn, 'String', 'Start Preview');
+    delete(src);
+end
+
+function VideoPreview_Callback(v, e, hImage)
+%% Callback called when video is open
+    set(hImage, 'CData', e.Data);
 end
 
 function g = initialize
 %% Creates components for default layout of the gui
 sz = get(0, 'ScreenSize');
-dim = [1000 500]; % Size of figure window
+dim = [250 500]; % Size of figure window
 
 % Hold handles in a struct
 g = struct();
 
 % Main Window
 g.Window = figure('Visible', 'off', 'Position', [(sz(3)-dim(1))/2 (sz(4)-dim(2))/2 dim], ...
-    'Toolbar', 'none', 'MenuBar', 'none', 'NumberTitle', 'off', 'Renderer', 'ZBuffer', ...
-    'Name', 'ParticleTrack', 'Resize', 'on', 'DoubleBuffer', 'on');
+    'Toolbar', 'none', 'MenuBar', 'none', 'NumberTitle', 'off', ...
+    'Name', 'ParticleTrack', 'Resize', 'off');
 
-hbox1 = uiextras.HBox('Parent', g.Window);
-
-% Video Box
-bp1 = uiextras.BoxPanel('Parent', hbox1, 'Title', 'Video Preview');
-
-g.Preview = axes('Parent', bp1, 'XLim', [0 800], 'YLim', [0 600], ...
-    'ActivePositionProperty', 'Position');
-%uiextras.Empty('Parent', hbox1);
-p1 = uiextras.BoxPanel('Parent', hbox1, 'Title', 'Capture Parameters');
-set(hbox1, 'Sizes', [-5 -2]);
+p1 = uiextras.BoxPanel('Parent', g.Window, 'Title', 'Capture Parameters');
 
 g1 = uiextras.Grid('Parent', p1, 'Padding', 10, 'Spacing', 5);
 
@@ -77,9 +178,9 @@ uiextras.Empty('Parent', g1);
 g.CaptureBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Capture');
 
 % Column 2 of Grid
-g.ExposureCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['1/10000|1/5000|1/2500|1/1111|1/526|1/256|1/128|1/64|1/32|1/16|1/8|1/4'], 'HorizontalAlignment', 'Right');
-g.GainCtrl = uicontrol('Parent', g1, 'style', 'slider', 'Max', 63, 'Min', 16, 'Value', 32, 'SliderStep', [1 1], 'Position', [0 0 1 0.3]);
-g.FramerateCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['60.0|30.0|15.0|7.5|5']);
+g.ExposureCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['1/10000|1/5000|1/2500|1/1111|1/526|1/256|1/128|1/64|1/32|1/16|1/8|1/4'], 'HorizontalAlignment', 'Right', 'Enable', 'off');
+g.GainCtrl = uicontrol('Parent', g1, 'style', 'slider', 'Max', 63, 'Min', 16, 'Value', 32, 'SliderStep', [1 1], 'Position', [0 0 1 0.3], 'Enable', 'off');
+g.FrameRateCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['60.0|30.0|15.0|7.5|5'], 'Enable', 'off');
 g.ContrastCtrl = uicontrol('Parent', g1, 'style', 'checkbox', 'String', 'Contrast Stretch', 'HorizontalAlignment', 'Right');
 
 uiextras.Empty('Parent', g1);
@@ -162,7 +263,7 @@ end
 if(isfield(gui_struct, 'Video'))
     % Video was successfully created
     % Copy it to main gui appdata
-    setappdata(main_gui, 'video', gui_struct.Video);
+    setappdata(main_h, 'video', gui_struct.Video);
 end
 delete(adapt_h); % Actually close the figure
 end
@@ -279,6 +380,7 @@ end
 function DoneBtn_Callback(src, event, gui)
     gui.Video = videoinput(gui.Adaptor.AdaptorName, gui.dId, gui.SelectedFormat);
     setappdata(gui.Window, 'gui_struct', gui);
+    close(gui.Window);
 end
 
 function g = initialize_adaptor_select 
