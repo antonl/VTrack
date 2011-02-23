@@ -100,29 +100,61 @@ if(strcmp(get(v, 'Previewing'), 'on')) % Preview is Running
     set(gui.StartPreviewBtn, 'String', 'Start Preview');
     setappdata(gui.Window, 'gui_struct', gui);
 else
-    margins = [20 20];
-    sz = get(0, 'ScreenSize');
+%    margins = [20 20];
+%    sz = get(0, 'ScreenSize');
     
-    vRes = get(v, 'VideoResolution');
+%    vRes = get(v, 'VideoResolution');
 
-    dim = vRes + margins;
+%    dim = vRes + margins;
 
-    gui.PreviewFig = figure('Visible', 'off', 'Name', 'Preview', 'NumberTitle', 'off', 'MenuBar', 'none', ...
-        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
-    ax = axes('Parent', gui.PreviewFig, 'XLim', [0 vRes(1)], 'YLim', [0 vRes(2)]);
-    gui.PreviewImage = image('Parent', ax, 'CData', zeros(vRes(2), vRes(1), 1));
-    truesize(gui.PreviewFig, [vRes(2) vRes(1)]);
+%    gui.PreviewFig = figure('Visible', 'off', 'Name', 'Preview', 'NumberTitle', 'off', 'MenuBar', 'none', ...
+%        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
+    %ax = axes('Parent', gui.PreviewFig, 'XLim', [0 vRes(1)], 'YLim', [0 vRes(2)]);
+    %gui.PreviewImage = image('Parent', ax, 'CData', zeros(vRes(2), vRes(1), 1));
+    %truesize(gui.PreviewFig, [vRes(2) vRes(1)]);
 
     % Create image for preview callback
-    setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
+    %setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
     
-    preview(v, gui.PreviewImage);
+    %preview(v, gui.PreviewImage);
+    gui.PreviewImage = preview(v);
+
+    gui.PreviewFig = ancestor(gui.PreviewImage, 'figure');
+
+    set(gui.PreviewFig, 'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
     set(gui.StartPreviewBtn, 'String', 'Stop Preview');
-    set(gui.PreviewFig, 'Visible', 'on');
+    %set(gui.PreviewFig, 'Visible', 'on');
     
-    set(ax, 'Visible', 'on', 'Color', 'black');
+    %set(ax, 'Visible', 'on', 'Color', 'black');
     setappdata(gui.Window, 'gui_struct', gui);
 end
+end
+
+function GainCtrl_Callback(src, e, gui)
+    v = getappdata(gui.Window, 'video');
+    
+    val = get(gui.GainCtrl, 'Value');
+    
+    set(getselectedsource(v), 'Gain', val);
+end
+
+function ExposureCtrl_Callback(src, e, gui)
+    v = getappdata(gui.Window, 'video');
+
+    val = get(gui.ExposureCtrl, 'Value');
+
+    % Exposure values run from -13 to -2, val is 1 to 12 
+    set(getselectedsource(v), 'Exposure', val-14);
+end
+
+function FrameRateCtrl_Callback(src, e, gui)
+    v = getappdata(gui.Window, 'video');
+
+    val = get(gui.ExposureCtrl, 'Value');
+    
+    % Get the structure that contains information about FrameRate
+    fr= propinfo(getselectedsource(v), 'FrameRate');
+    set(getselectedsource(v), 'FrameRate', fr.ConstraintValue{val});
 end
 
 function PreviewCloseFcn(src, e, gui)
@@ -138,7 +170,7 @@ function PreviewCloseFcn(src, e, gui)
     end
    
     set(gui.StartPreviewBtn, 'String', 'Start Preview');
-    delete(src);
+    %delete(src);
 end
 
 function VideoPreview_Callback(v, e, hImage)
