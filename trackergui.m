@@ -114,7 +114,6 @@ else
     %truesize(gui.PreviewFig, [vRes(2) vRes(1)]);
 
     % Create image for preview callback
-    %setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
     
     %preview(v, gui.PreviewImage);
     gui.PreviewImage = preview(v);
@@ -123,6 +122,8 @@ else
 
     set(gui.PreviewFig, 'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
     set(gui.StartPreviewBtn, 'String', 'Stop Preview');
+    setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
+    
     %set(gui.PreviewFig, 'Visible', 'on');
     
     %set(ax, 'Visible', 'on', 'Color', 'black');
@@ -175,7 +176,7 @@ end
 
 function VideoPreview_Callback(v, e, hImage)
 %% Callback called when video is open
-    set(hImage, 'CData', e.Data);
+    set(hImage, 'CData', imhist(e.Data, 64));
 end
 
 function g = initialize
