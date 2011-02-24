@@ -100,13 +100,29 @@ if(strcmp(get(v, 'Previewing'), 'on')) % Preview is Running
     set(gui.StartPreviewBtn, 'String', 'Start Preview');
     setappdata(gui.Window, 'gui_struct', gui);
 else
+
 %    margins = [20 20];
 %    sz = get(0, 'ScreenSize');
-    
-%    vRes = get(v, 'VideoResolution');
+    %statusBarHeight = 1.25; % In chars
+    %vRes = get(v, 'VideoResolution');
 
 %    dim = vRes + margins;
 
+    % NOTE: The following code borrows heavily from the source of the "preview" function
+
+    %gui.PreviewFig = figure('Visible', 'off', 'MenuBar', 'none', 'Toolbar', 'none', 'NumberTitle', 'off', 'Name', 'Preview', ...
+        %'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'pixels');
+
+   % set(gui.PreviewFig, 'Units', 'characters');
+   % figPos = get(gui.PreviewFig, 'Position');
+
+   % gui.PreviewImagePanel = uipanel('Parent', gui.PreviewFig, 'Units', 'characters', 'BorderType', 'none', ...
+   %     'Position', [0 statusBarHeight figPos(3) figPos(4)-statusBarHeight]);
+
+   % ax = axes('Parent', gui.PreviewFig);
+    
+   % data = zeros(vRes(2),
+   % gui.PreviewImage = 
 %    gui.PreviewFig = figure('Visible', 'off', 'Name', 'Preview', 'NumberTitle', 'off', 'MenuBar', 'none', ...
 %        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
     %ax = axes('Parent', gui.PreviewFig, 'XLim', [0 vRes(1)], 'YLim', [0 vRes(2)]);
@@ -116,19 +132,96 @@ else
     % Create image for preview callback
     
     %preview(v, gui.PreviewImage);
-    gui.PreviewImage = preview(v);
+    gui = create_preview(gui); % Create a preview window
 
-    gui.PreviewFig = ancestor(gui.PreviewImage, 'figure');
+    preview(v, gui.PreviewImage);
 
-    set(gui.PreviewFig, 'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
+    %gui.PreviewFig = ancestor(gui.PreviewImage, 'figure');
+
+    %set(gui.PreviewFig, 'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
     set(gui.StartPreviewBtn, 'String', 'Stop Preview');
-    setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
+    %setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
     
-    %set(gui.PreviewFig, 'Visible', 'on');
+    set(gui.PreviewFig, 'Visible', 'on');
     
     %set(ax, 'Visible', 'on', 'Color', 'black');
     setappdata(gui.Window, 'gui_struct', gui);
 end
+end
+
+function gui_struct = create_preview(gui)
+    v = getappdata(gui.Window, 'video');
+    vRes = get(v, 'VideoResolution');
+    sz = get(0, 'ScreenSize');
+
+    % Height of status bar in characters
+    statusCharHeight = 1.5;
+
+    timeSecWidth = 20;
+    resSecWidth = 20;
+    stretchSecWidth = 30;
+
+    stretchXOffset = timeSecWidth + resSecWidth;
+
+    normText = [0 0 1 1];
+
+    % Figure to hold preview image
+    gui.PreviewFig = figure('Visible', 'off', 'MenuBar', 'none', 'Toolbar', 'none', 'NumberTitle', 'off', 'Name', 'Preview', ...
+        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'characters', 'Renderer', 'zbuffer', ...
+        'DoubleBuffer', 'off');
+    
+    figPos = get(gui.PreviewFig, 'Position');
+
+    % Panel to hold status information
+    gui.StatusPanel = uipanel('Parent', gui.PreviewFig, 'Units', 'characters', 'BorderType', 'none', ...
+        'Position', [0 0 figPos(3) statusCharHeight]);
+    
+    gui.TimePanel = uipanel('Parent', gui.StatusPanel, 'Units', 'characters', 'Position', [0 0 timeSecWidth statusCharHeight]);
+    gui.TimeField = uicontrol('Parent', gui.TimePanel, 'Style', 'text', 'String', 'Time Stamp', 'Units', 'normalized', ...
+       'Position', normText);
+
+    gui.ResPanel = uipanel('Parent', gui.StatusPanel, 'Units', 'characters', 'Position', [timeSecWidth 0 resSecWidth statusCharHeight]);
+    gui.ResField = uicontrol('Parent', gui.ResPanel, 'Style', 'text', 'String', 'Resolution', 'Units', 'normalized', ...
+        'Position', normText);
+
+    gui.StretchPanel = uipanel('Parent', gui.StatusPanel, 'Units', 'characters', 'Position', ...
+        [stretchXOffset 0 stretchSecWidth statusCharHeight]);
+    gui.StretchField = uicontrol('Parent', gui.StretchPanel, 'Style', 'text', 'String', 'Contrast Stretching Off', 'Units', 'normalized', ...
+        'Position', normText);
+
+    % Panel to hold preview image
+    gui.ImagePanel = uipanel('Parent', gui.PreviewFig, 'Units', 'characters', 'BorderType', 'none', ...
+        'Position', [0 statusCharHeight figPos(3) figPos(4)-statusCharHeight]);
+
+    set(gui.ImagePanel, 'Units', 'normalized');
+
+    gui.Axes = axes('Parent', gui.ImagePanel);
+
+    data = zeros(vRes(1), vRes(2), 1);
+
+    gui.PreviewImage = image(data, 'Parent', gui.Axes);
+
+   
+    set(gui.Axes, 'Units', 'pixels');
+    
+    set(gui.Axes, 'XLim', [1 vRes(1)], 'YLim', [1 vRes(2)], 'Position', [0 0 vRes(1) vRes(2)]);
+
+    % Resize figure so that no rescaling needs to be done
+    set(gui.StatusPanel, 'Units', 'pixels');
+    statusPos = get(gui.StatusPanel, 'Position');
+    set(gui.StatusPanel, 'Units', 'normalized');
+
+    set(gui.PreviewFig, 'Units', 'pixels');
+    figWidth = vRes(1);
+    figHeight = vRes(2) + statusPos(4);
+    set(gui.PreviewFig, 'Position', [(sz(3)-figWidth)/2 (sz(4)-figHeight)/2 figWidth figHeight]);
+
+    set(gui.Axes, 'Visible', 'on', 'CLimMode', 'manual', 'CLim', [0 255],...
+        'ALimMode', 'manual', 'XLimMode', 'manual', 'YLimMode', 'manual', ...
+        'ZLimMode', 'manual', 'XTickMode', 'manual', 'YTickMode', 'manual', ...
+        'ZTickMode', 'manual');
+    setappdata(gui.Window, 'gui_struct', gui);
+    gui_struct = gui;
 end
 
 function GainCtrl_Callback(src, e, gui)
@@ -171,12 +264,13 @@ function PreviewCloseFcn(src, e, gui)
     end
    
     set(gui.StartPreviewBtn, 'String', 'Start Preview');
-    %delete(src);
+    delete(src);
 end
 
 function VideoPreview_Callback(v, e, hImage)
 %% Callback called when video is open
-    set(hImage, 'CData', imhist(e.Data, 64));
+%disp('In Here');
+    set(hImage, 'CData', e.Data);
 end
 
 function g = initialize
