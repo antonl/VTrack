@@ -134,18 +134,20 @@ else
     %preview(v, gui.PreviewImage);
     gui = create_preview(gui); % Create a preview window
 
-    preview(v, gui.PreviewImage);
 
     %gui.PreviewFig = ancestor(gui.PreviewImage, 'figure');
 
     %set(gui.PreviewFig, 'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
     set(gui.StartPreviewBtn, 'String', 'Stop Preview');
-    %setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
+    setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
     
     set(gui.PreviewFig, 'Visible', 'on');
     
     %set(ax, 'Visible', 'on', 'Color', 'black');
     setappdata(gui.Window, 'gui_struct', gui);
+    setappdata(gui.PreviewImage, 'main_h', gui.Window);
+
+    preview(v, gui.PreviewImage);
 end
 end
 
@@ -167,7 +169,7 @@ function gui_struct = create_preview(gui)
 
     % Figure to hold preview image
     gui.PreviewFig = figure('Visible', 'off', 'MenuBar', 'none', 'Toolbar', 'none', 'NumberTitle', 'off', 'Name', 'Preview', ...
-        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'characters', 'Renderer', 'zbuffer', ...
+        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'characters', 'Renderer', 'opengl', ...
         'DoubleBuffer', 'off');
     
     figPos = get(gui.PreviewFig, 'Position');
@@ -244,7 +246,7 @@ end
 function FrameRateCtrl_Callback(src, e, gui)
     v = getappdata(gui.Window, 'video');
 
-    val = get(gui.ExposureCtrl, 'Value');
+    val = get(gui.FrameRateCtrl, 'Value');
     
     % Get the structure that contains information about FrameRate
     fr= propinfo(getselectedsource(v), 'FrameRate');
@@ -269,8 +271,24 @@ end
 
 function VideoPreview_Callback(v, e, hImage)
 %% Callback called when video is open
-%disp('In Here');
-    set(hImage, 'CData', e.Data);
+    main_h = getappdata(hImage, 'main_h');
+    gui = getappdata(main_h, 'gui_struct');
+
+    set(gui.TimeField, 'String', e.Timestamp);
+    
+    if(~strcmpi(e.Resolution, '')) % Apparently sometimes imaq forgets to set resolution?!
+        set(gui.ResField, 'String', e.Resolution);
+    end
+
+    if(get(gui.ContrastCtrl, 'Value') == 1)
+        set(gui.StretchField, 'String', 'Contrast Stretching On');
+        data = histeq(e.Data, 64);
+    else
+        set(gui.StretchField, 'String', 'Contrast Stretching Off');
+        data = e.Data;
+    end
+
+    set(hImage, 'CData', data);
 end
 
 function g = initialize
