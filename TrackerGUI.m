@@ -17,7 +17,8 @@ function TrackerGUI(src, e, func)
             create_video(gui.Window);
         catch e
             fprintf('Failed to create video capture device handle.\n');
-            close(gui.Window);
+            delete(gui.Window);
+            imaqreset;
             rethrow(e);
         end
 
@@ -63,6 +64,7 @@ pr = propinfo(input);
 if(isfield(pr, 'Gain'))
     set(input, 'GainMode', 'Manual');
     set(gui.GainCtrl, 'Enable', 'on', 'Callback', {@TrackerGUI @GainCtrl_Callback});
+    hgfeval(@GainCtrl_Callback, [], [], gui);
 else
     set(gui.GainCtrl, 'Enable', 'off');
 end
@@ -70,20 +72,73 @@ end
 if(isfield(pr, 'Exposure'))
     set(input, 'ExposureMode', 'Manual');
     set(gui.ExposureCtrl, 'Enable', 'on', 'Callback', {@TrackerGUI @ExposureCtrl_Callback});
+    hgfeval(@ExposureCtrl_Callback, [], [], gui);
 else
     set(gui.ExposureCtrl, 'Enable', 'off');
 end
 
 if(isfield(pr, 'FrameRate'))
     set(gui.FrameRateCtrl, 'Enable', 'on', 'Callback', {@TrackerGUI @FrameRateCtrl_Callback});
+    hgfeval(@FrameRateCtrl_Callback, [], [], gui);
 else
     set(gui.FrameRateCtrl, 'Enable', 'off');
 end
+
+set(gui.SetRoiBtn, 'Callback', {@TrackerGUI @SetRoiBtn_Callback});
+set(gui.SetKernBtn, 'Callback', {@TrackerGUI @SetKernBtn_Callback});
+set(gui.FramesToCapCtrl, 'Callback', {@TrackerGUI @FramesToCapCtrl_Callback});
+set(gui.TrackingCtrl, 'Callback', {@TrackerGUI @TrackingCtrl_Callback});
 
 % Start Preview Callback 
 set(gui.StartPreviewBtn, 'Callback', {@TrackerGUI @StartPreviewBtn_Callback});
 
 setappdata(gui.Window, 'gui_struct', gui);
+end
+
+function SetRoiBtn_Callback(src, e, gui)
+if(~(get(gui.TrackingCtrl, 'Value') == 1))
+    return % Not tracking, shouldn't be here
+end
+
+try
+    fn = makeConstrainToRectFcn('imrect', get(gui.Axes, 'XLim'), get(gui.Axes, 'YLim'));
+    roi = imrect(gui.Axes, 'PositionConstraintFcn', fn);
+
+    if(~isfield(gui, 'RoiRect') || (isfield(gui, 'RoiRect') & ~ishandle(gui.RoiRect)))
+        gui.RoiRect = rectangle('Parent', gui.Axes, 'Position', round(roi.getPosition), 'EdgeColor', 'g');
+    else
+        set(gui.RoiRect, 'Position', round(roi.getPosition));
+    end
+
+    delete(roi);
+    setappdata(gui.Window, 'gui_struct', gui);
+catch e
+    delete(roi);
+    rethrow(e);
+end
+end
+
+function SetKernBtn_Callback(src, e, gui)
+if(~(get(gui.TrackingCtrl, 'Value') == 1))
+    return % Not tracking, shouldn't be here
+end
+
+try
+    fn = makeConstrainToRectFcn('imrect', get(gui.Axes, 'XLim'), get(gui.Axes, 'YLim'));
+    roi = imrect(gui.Axes, 'PositionConstraintFcn', fn);
+
+    if(~isfield(gui, 'KernRect') || (isfield(gui, 'KernRect') & ~ishandle(gui.KernRect)))
+        gui.KernRect = rectangle('Parent', gui.Axes, 'Position', round(roi.getPosition), 'EdgeColor', 'r');
+    else
+        set(gui.KernRect, 'Position', round(roi.getPosition));
+    end
+
+    setappdata(gui.Window, 'gui_struct', gui);
+    delete(roi);
+catch e
+    delete(roi);
+    rethrow(e);
+end
 end
 
 function StartPreviewBtn_Callback(src, e, gui)
@@ -94,56 +149,20 @@ else
     v = getappdata(gui.Window, 'video');
 end
 
-if(strcmp(get(v, 'Previewing'), 'on')) % Preview is Running
+if(strcmpi(get(v, 'Previewing'), 'on')) % Preview is Running
     %closepreview(v); % This is done in the close fcn for this figure
     close(gui.PreviewFig);
     set(gui.StartPreviewBtn, 'String', 'Start Preview');
     setappdata(gui.Window, 'gui_struct', gui);
 else
 
-%    margins = [20 20];
-%    sz = get(0, 'ScreenSize');
-    %statusBarHeight = 1.25; % In chars
-    %vRes = get(v, 'VideoResolution');
-
-%    dim = vRes + margins;
-
-    % NOTE: The following code borrows heavily from the source of the "preview" function
-
-    %gui.PreviewFig = figure('Visible', 'off', 'MenuBar', 'none', 'Toolbar', 'none', 'NumberTitle', 'off', 'Name', 'Preview', ...
-        %'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'pixels');
-
-   % set(gui.PreviewFig, 'Units', 'characters');
-   % figPos = get(gui.PreviewFig, 'Position');
-
-   % gui.PreviewImagePanel = uipanel('Parent', gui.PreviewFig, 'Units', 'characters', 'BorderType', 'none', ...
-   %     'Position', [0 statusBarHeight figPos(3) figPos(4)-statusBarHeight]);
-
-   % ax = axes('Parent', gui.PreviewFig);
-    
-   % data = zeros(vRes(2),
-   % gui.PreviewImage = 
-%    gui.PreviewFig = figure('Visible', 'off', 'Name', 'Preview', 'NumberTitle', 'off', 'MenuBar', 'none', ...
-%        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
-    %ax = axes('Parent', gui.PreviewFig, 'XLim', [0 vRes(1)], 'YLim', [0 vRes(2)]);
-    %gui.PreviewImage = image('Parent', ax, 'CData', zeros(vRes(2), vRes(1), 1));
-    %truesize(gui.PreviewFig, [vRes(2) vRes(1)]);
-
-    % Create image for preview callback
-    
-    %preview(v, gui.PreviewImage);
     gui = create_preview(gui); % Create a preview window
 
-
-    %gui.PreviewFig = ancestor(gui.PreviewImage, 'figure');
-
-    %set(gui.PreviewFig, 'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off');
     set(gui.StartPreviewBtn, 'String', 'Stop Preview');
     setappdata(gui.PreviewImage, 'UpdatePreviewWindowFcn', @VideoPreview_Callback);
     
     set(gui.PreviewFig, 'Visible', 'on');
     
-    %set(ax, 'Visible', 'on', 'Color', 'black');
     setappdata(gui.Window, 'gui_struct', gui);
     setappdata(gui.PreviewImage, 'main_h', gui.Window);
 
@@ -169,7 +188,7 @@ function gui_struct = create_preview(gui)
 
     % Figure to hold preview image
     gui.PreviewFig = figure('Visible', 'off', 'MenuBar', 'none', 'Toolbar', 'none', 'NumberTitle', 'off', 'Name', 'Preview', ...
-        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'characters', 'Renderer', 'opengl', ...
+        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'characters', 'Renderer', 'zbuffer', ...
         'DoubleBuffer', 'off');
     
     figPos = get(gui.PreviewFig, 'Position');
@@ -199,7 +218,7 @@ function gui_struct = create_preview(gui)
 
     gui.Axes = axes('Parent', gui.ImagePanel);
 
-    data = zeros(vRes(1), vRes(2), 1);
+    data = zeros(vRes(2), vRes(1), 1);
 
     gui.PreviewImage = image(data, 'Parent', gui.Axes);
 
@@ -316,7 +335,7 @@ g.StartPreviewBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'St
 uiextras.Empty('Parent', g1);
 
 uicontrol('Parent', g1, 'style', 'text', 'String', 'Tracking/Capture Settings:', 'HorizontalAlignment', 'Left');
-g.SetRoiBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Set ROI');
+g.SetRoiBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Set ROI', 'Enable', 'off');
 uicontrol('Parent', g1, 'style', 'text', 'String', 'Frames to Cap', 'HorizontalAlignment', 'Left');
 
 uiextras.Empty('Parent', g1);
@@ -330,14 +349,39 @@ g.ContrastCtrl = uicontrol('Parent', g1, 'style', 'checkbox', 'String', 'Contras
 
 uiextras.Empty('Parent', g1);
 
-uicontrol('Parent', g1, 'style', 'checkbox', 'String', 'Tracking', 'HorizontalAlignment', 'Right');
-g.SetKernBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Set Kernel');
+g.TrackingCtrl = uicontrol('Parent', g1, 'style', 'checkbox', 'String', 'Tracking', 'HorizontalAlignment', 'Right');
+g.SetKernBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'Enable', 'off', 'String', 'Set Kernel');
 g.FramesToCapCtrl = uicontrol('Parent', g1, 'style', 'edit', 'String', '30');
 uiextras.Empty('Parent', g1);
 uiextras.Empty('Parent', g1);
 
 set(g1, 'RowSizes', [30 30 30 30 30 30 30 30 -1 30], 'ColumnSizes', [-1 -1]);
 % End Grid
+end
+
+function TrackingCtrl_Callback(src, e, gui)
+    if(get(src, 'Value') == 0)
+        set(gui.SetRoiBtn, 'Enable', 'off');
+        set(gui.SetKernBtn, 'Enable', 'off');
+
+        if(isfield(gui, 'RoiRect') & ishandle(gui.RoiRect))
+            delete(gui.RoiRect);
+        end
+
+        if(isfield(gui, 'KernRect') & ishandle(gui.KernRect))
+            delete(gui.KernRect);
+        end
+
+    else
+        % Supposed to track
+        if(isfield(gui, 'Axes') & ishandle(gui.Axes))
+            set(gui.SetRoiBtn, 'Enable', 'on');
+            set(gui.SetKernBtn, 'Enable', 'on');
+        else
+            set(src, 'Value', 0);
+            throw(MException('GUIError:CannotTrackWithoutPreview', 'Cannot track without an open preview window'));
+        end
+    end
 end
 
 function v = create_video(h, aId, dId)
@@ -352,13 +396,18 @@ if(nargin == 1) % Show dialog box
     % Upon a close request, save the gui structure in 
     set(gui.Window, 'CloseRequestFcn', {@AdaptorGUI_CloseCallback gui.Window h}); 
 
-    uiwait(gui.Window);
-   
+    try
+        uiwait(gui.Window);
+    catch
+        disp(lasterr);         
+    end
+
     if(~isappdata(h, 'video'))
         % Video was not successfully set
         throw(MException('VideoError:SelectionCanceled', 'No device was selected through the GUI. Did you cancel the dialog?'));
     end
-elseif(nargin == 3)
+
+elseif(nargin == 3) % Don't actually do this...
     try
         i_a = imaqhwinfo;
 
