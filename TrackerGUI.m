@@ -113,7 +113,9 @@ try
     delete(roi);
     setappdata(gui.Window, 'gui_struct', gui);
 catch e
-    delete(roi);
+    if(ishandle(roi))
+        delete(roi); % perhaps the person turned off tracking without drawing ROI
+    end
     rethrow(e);
 end
 end
@@ -136,7 +138,10 @@ try
     setappdata(gui.Window, 'gui_struct', gui);
     delete(roi);
 catch e
-    delete(roi);
+    if(ishandle(roi))
+        delete(roi); % perhaps the person turned off tracking without drawing ROI
+    end
+
     rethrow(e);
 end
 end
@@ -152,6 +157,10 @@ end
 if(strcmpi(get(v, 'Previewing'), 'on')) % Preview is Running
     %closepreview(v); % This is done in the close fcn for this figure
     close(gui.PreviewFig);
+
+    set(gui.TrackingCtrl, 'Value', 0);
+    set(gui.SetKernBtn, 'Enable', 'off');
+    set(gui.SetRoiBtn, 'Enable', 'off');
     set(gui.StartPreviewBtn, 'String', 'Start Preview');
     setappdata(gui.Window, 'gui_struct', gui);
 else
@@ -298,16 +307,43 @@ function VideoPreview_Callback(v, e, hImage)
     if(~strcmpi(e.Resolution, '')) % Apparently sometimes imaq forgets to set resolution?!
         set(gui.ResField, 'String', e.Resolution);
     end
+    
+    try
+        if(get(gui.ContrastCtrl, 'Value') == 1)
+            set(gui.StretchField, 'String', 'Contrast Stretching On');
+            data = histeq(e.Data, 64);
+        else
+            set(gui.StretchField, 'String', 'Contrast Stretching Off');
+            data = e.Data;
+        end
 
-    if(get(gui.ContrastCtrl, 'Value') == 1)
-        set(gui.StretchField, 'String', 'Contrast Stretching On');
-        data = histeq(e.Data, 64);
-    else
-        set(gui.StretchField, 'String', 'Contrast Stretching Off');
+        if(get(gui.TrackingCtrl,'Value') == 1)
+            % Make sure rectangles exist
+            if(validate_roi_kern(gui))
+                % Do particle tracking
+                ;
+            end
+        end
+    catch 
         data = e.Data;
+        fprintf('Video update fcn failed\n');
+        disp(lasterr);
+
     end
 
     set(hImage, 'CData', data);
+end
+
+function valid = validate_roi_kern(gui)
+    if((isfield(gui, 'RoiRect') & ishandle(gui.RoiRect)) & (isfield(gui, 'KernRect') & ishandle(gui.KernRect)))
+        % Handles exist, that means the rectangles are being displayed
+
+        % Ideally, make sure that kernel is in region-of-interest
+        valid = true;
+        return
+    else
+        valid = false;
+    end
 end
 
 function g = initialize
