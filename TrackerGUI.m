@@ -38,7 +38,7 @@ function TrackerGUI(src, e, func)
 end
 
 function TrackerGUIDelete_Callback(src, e, gui)
-    if(isappdata(gui.Window, 'video'))
+    if(isfield(gui, 'Window') & isappdata(gui.Window, 'video'))
         v = getappdata(gui.Window, 'video');
         stop(v);
         
@@ -321,18 +321,39 @@ function VideoPreview_Callback(v, e, hImage)
             % Make sure rectangles exist
             if(validate_roi_kern(gui))
                 % Do particle tracking
-                ;
+                rpos = get(gui.RoiRect, 'Position');
+                kpos = get(gui.KernRect, 'Position');
+
+                roi = e.Data(rpos(2):rpos(2)+rpos(4), rpos(1):rpos(1)+rpos(3)); 
+                kern = e.Data(kpos(2):kpos(2)+kpos(4), kpos(1):kpos(1)+kpos(3)); 
+                
+                pos = get_approx_position(roi, kern);
+
+                tstr = sprintf('(%3.1f, %3.1f)', pos(1), pos(2));
+
+
+                if(isfield(gui, 'TrackingLabel') & ishandle(gui.TrackingLabel))
+                    set(gui.TrackingLabel, 'String', tstr, 'Position', [kpos(1) kpos(2)+kpos(4)]);
+                else
+                    gui.TrackingLabel = text('Parent', gui.Axes, 'VerticalAlignment', 'top', ...
+                        'String', tstr, 'Color', [0.2 0.2 0.2], 'Position', [kpos(1) kpos(2)+kpos(4)],...
+                        'BackgroundColor', [0 0.9 0.2]);
+                    setappdata(gui.Window, 'gui_struct', gui);
+                end
             end
         end
-    catch 
+    catch err
         data = e.Data;
-        fprintf('Video update fcn failed\n');
-        disp(lasterr);
-
+        rethrow(err);
     end
 
     set(hImage, 'CData', data);
 end
+
+function pos = get_approx_position(roi, kern)
+    pos = [200.141 205.13];
+end
+
 
 function valid = validate_roi_kern(gui)
     if((isfield(gui, 'RoiRect') & ishandle(gui.RoiRect)) & (isfield(gui, 'KernRect') & ishandle(gui.KernRect)))
@@ -408,6 +429,9 @@ function TrackingCtrl_Callback(src, e, gui)
             delete(gui.KernRect);
         end
 
+        if(isfield(gui, 'TrackingLabel') & ishandle(gui.TrackingLabel))
+            delete(gui.TrackingLabel);
+        end
     else
         % Supposed to track
         if(isfield(gui, 'Axes') & ishandle(gui.Axes))
