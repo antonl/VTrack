@@ -324,13 +324,47 @@ function VideoPreview_Callback(v, e, hImage)
                 rpos = get(gui.RoiRect, 'Position');
                 kpos = get(gui.KernRect, 'Position');
 
-                roi = e.Data(rpos(2):rpos(2)+rpos(4), rpos(1):rpos(1)+rpos(3)); 
-                kern = e.Data(kpos(2):kpos(2)+kpos(4), kpos(1):kpos(1)+kpos(3)); 
-                
-                pos = get_approx_position(roi, kern);
+                roi = data(rpos(2):rpos(2)+rpos(4), rpos(1):rpos(1)+rpos(3)); 
+                kern = data(kpos(2):kpos(2)+kpos(4), kpos(1):kpos(1)+kpos(3)); 
+
+                if(~isfield(gui, 'Position') || (isfield(gui, 'Position') & any(gui.Position < 0)))
+                    % Previous calculated center of mass
+                    gui.Position = round([-rpos(1)+kpos(1)+kpos(3)/2 -rpos(2)+kpos(2)+kpos(4)/2]); 
+                    gui.Accumulated = [0 0];
+                    pos = gui.Position;
+                else
+                    dat = conv2(double(roi), double(rot90(kern,2)), 'same');
+
+                    if(isempty(dat))
+                        throw(MException('TrackerGUI:BadConvolution', 'Could not calculate convolution'));
+                    end
+
+                    % Normalize
+                    mval = max(dat(:));
+                    dat = dat./mval; % Normalize
+               
+                    % Threshold
+                    dat = (dat > 0.7).*dat;
+                    
+                    pos = get_approx_position(dat, rpos, gui.Position);
+                    
+                    gui.Accumulated = gui.Accumulated + pos - gui.Position;
+
+                    gui.Position = pos;
+
+                    if(max(abs(gui.Accumulated)) >= 1)
+                        rnd = round(gui.Accumulated);
+                        set(gui.KernRect, 'Position', [kpos(1:2)+rnd kpos(3:4)]);
+                        set(gui.RoiRect, 'Position', [rpos(1:2)+rnd rpos(3:4)]);
+                        gui.Accumulated = gui.Accumulated - rnd;
+                    end
+
+                    sz = size(data);
+                    dsz = size(dat);
+                    data(sz(1) - dsz(1)+1:sz(1), sz(2) - dsz(2)+1:sz(2)) = dat.*255;
+                end
 
                 tstr = sprintf('(%3.1f, %3.1f)', pos(1), pos(2));
-
 
                 if(isfield(gui, 'TrackingLabel') & ishandle(gui.TrackingLabel))
                     set(gui.TrackingLabel, 'String', tstr, 'Position', [kpos(1) kpos(2)+kpos(4)]);
@@ -346,12 +380,24 @@ function VideoPreview_Callback(v, e, hImage)
         data = e.Data;
         rethrow(err);
     end
-
+    
+    setappdata(gui.Window, 'gui_struct', gui);
     set(hImage, 'CData', data);
 end
 
-function pos = get_approx_position(roi, kern)
-    pos = [200.141 205.13];
+function pos = get_approx_position(dat, rpos, prev)
+    % Do particle tracking here
+    guessval = [1 30 prev];
+       
+    % Get data points 
+    [xys(:, :, 1) xys(:, :, 2)] = meshgrid(1:rpos(3)+1,1:rpos(4)+1); 
+
+    lb = [0 1 prev(1)-rpos(3)/2 prev(2)-rpos(4)/2]; % Guess at lower bound and upper bound
+    ub = [2 100 prev(1)+rpos(3)/2 prev(2)+rpos(4)/2]; 
+
+    opts = optimset('TolX', 1e-6, 'TolFun', 1e-6, 'Display', 'off');
+    [fit_val,~,~,exitflag,output] = lsqcurvefit(@gaussian_fitfcn, guessval, xys, dat, lb, ub, opts ); 
+    pos(1:2) = fit_val(3:4);
 end
 
 
