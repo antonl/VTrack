@@ -86,11 +86,12 @@ end
 
 set(gui.SetRoiBtn, 'Callback', {@TrackerGUI @SetRoiBtn_Callback});
 set(gui.SetKernBtn, 'Callback', {@TrackerGUI @SetKernBtn_Callback});
-set(gui.FramesToCapCtrl, 'Callback', {@TrackerGUI @FramesToCapCtrl_Callback});
 set(gui.TrackingCtrl, 'Callback', {@TrackerGUI @TrackingCtrl_Callback});
 
 % Start Preview Callback 
 set(gui.StartPreviewBtn, 'Callback', {@TrackerGUI @StartPreviewBtn_Callback});
+% Capture Btn
+set(gui.CaptureBtn, 'Callback', {@TrackerGUI @CaptureBtn_Callback});
 
 setappdata(gui.Window, 'gui_struct', gui);
 end
@@ -252,6 +253,33 @@ function gui_struct = create_preview(gui)
         'ZTickMode', 'manual');
     setappdata(gui.Window, 'gui_struct', gui);
     gui_struct = gui;
+end
+
+function CaptureBtn_Callback(src, e, gui)
+    if(~isdir('capture_data'))
+        throw(MException('CaptureError:NoCaptureDir','Cannot capture because capture_data directory does not exist'));
+        return;
+    end
+
+    filename = ['capture_data/' datestr(now, 'yyyymmdd-HHMMSS') '.avi'];
+    
+    v = getappdata(gui.Window, 'video');
+
+    try
+        set(v, 'FramesPerTrigger', str2num(get(gui.FramesToCapCtrl, 'String'))); 
+        vid_log = avifile(filename);
+        vid_log.Colormap = gray(256);
+        set(v, 'LoggingMode', 'disk', 'DiskLogger', vid_log, 'StopFcn', {@StopCapture_Callback gui});
+        set(gui.CaptureBtn, 'Enable', 'off');
+        start(v);
+    catch
+        disp(lasterr);
+    end
+end
+
+function StopCapture_Callback(v, e, gui)
+    s = close(v.DiskLogger);
+    set(gui.CaptureBtn, 'Enable', 'on');
 end
 
 function GainCtrl_Callback(src, e, gui)
