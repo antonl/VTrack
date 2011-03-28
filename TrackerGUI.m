@@ -454,40 +454,50 @@ g.Window = figure('Visible', 'off', 'Position', [(sz(3)-dim(1))/2 (sz(4)-dim(2))
     'Toolbar', 'none', 'MenuBar', 'none', 'NumberTitle', 'off', ...
     'Name', 'ParticleTrack', 'Resize', 'off');
 
-p1 = uiextras.BoxPanel('Parent', g.Window, 'Title', 'Capture Parameters');
+v1 = uiextras.VBox('Parent', g.Window, 'Spacing', 5);
+
+p1 = uiextras.BoxPanel('Parent', v1, 'Title', 'Camera Settings');
+
+% Camera parameters grid
 
 g1 = uiextras.Grid('Parent', p1, 'Padding', 10, 'Spacing', 5);
-
-% Column 1 of Grid
 uicontrol('Parent', g1, 'style', 'text', 'String', 'Exposure', 'HorizontalAlignment', 'Left');
 uicontrol('Parent', g1, 'style', 'text', 'String', 'Gain','HorizontalAlignment', 'Left');
 uicontrol('Parent', g1, 'style', 'text', 'String', 'Frame Rate', 'HorizontalAlignment', 'Left');
-g.StartPreviewBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Start Preview');
-uiextras.Empty('Parent', g1);
-
-uicontrol('Parent', g1, 'style', 'text', 'String', 'Tracking/Capture Settings:', 'HorizontalAlignment', 'Left');
-g.SetRoiBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Set ROI', 'Enable', 'off');
-uicontrol('Parent', g1, 'style', 'text', 'String', 'Frames to Cap', 'HorizontalAlignment', 'Left');
-
-uiextras.Empty('Parent', g1);
-g.CaptureBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Capture');
-
-% Column 2 of Grid
 g.ExposureCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['1/10000|1/5000|1/2500|1/1111|1/526|1/256|1/128|1/64|1/32|1/16|1/8|1/4'], 'HorizontalAlignment', 'Right', 'Enable', 'off');
 g.GainCtrl = uicontrol('Parent', g1, 'style', 'slider', 'Max', 63, 'Min', 16, 'Value', 32, 'SliderStep', [1 1], 'Position', [0 0 1 0.3], 'Enable', 'off');
 g.FrameRateCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['60.0|30.0|15.0|7.5|5'], 'Enable', 'off');
-g.ContrastCtrl = uicontrol('Parent', g1, 'style', 'checkbox', 'String', 'Contrast Stretch', 'HorizontalAlignment', 'Right');
 
-uiextras.Empty('Parent', g1);
+set(g1, 'ColumnSizes', [-1 -1], 'RowSizes', [-1 -1 -1]);
 
-g.TrackingCtrl = uicontrol('Parent', g1, 'style', 'checkbox', 'String', 'Tracking', 'HorizontalAlignment', 'Right');
-g.SetKernBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'Enable', 'off', 'String', 'Set Kernel');
-g.FramesToCapCtrl = uicontrol('Parent', g1, 'style', 'edit', 'String', '30');
-uiextras.Empty('Parent', g1);
-uiextras.Empty('Parent', g1);
 
-set(g1, 'RowSizes', [30 30 30 30 30 30 30 30 -1 30], 'ColumnSizes', [-1 -1]);
-% End Grid
+% Tracking/Preview Grid
+p2 = uiextras.BoxPanel('Parent', v1, 'Title', 'Tracking/Preview Settings');
+g2 = uiextras.Grid('Parent', p2, 'Padding', 10, 'Spacing', 5);
+
+g.StartPreviewBtn = uicontrol('Parent', g2, 'style', 'pushbutton', 'String', 'Start Preview');
+g.BackgroundSubCtrl = uicontrol('Parent', g2, 'style', 'checkbox', 'String', 'Background Sub', 'HorizontalAlignment', 'Right');
+g.TrackingCtrl = uicontrol('Parent', g2, 'style', 'checkbox', 'String', 'Tracking', 'HorizontalAlignment', 'Right');
+g.SetRoiBtn = uicontrol('Parent', g2, 'style', 'pushbutton', 'String', 'Set ROI', 'Enable', 'off');
+
+g.ContrastCtrl = uicontrol('Parent', g2, 'style', 'checkbox', 'String', 'Contrast Stretch', 'HorizontalAlignment', 'Right');
+g.SetBackgroundBtn = uicontrol('Parent', g2, 'style', 'pushbutton', 'Enable', 'off', 'String', 'Set Background');
+uiextras.Empty('Parent', g2);
+g.SetKernBtn = uicontrol('Parent', g2, 'style', 'pushbutton', 'Enable', 'off', 'String', 'Set Kernel');
+set(g2, 'RowSizes', [-1 -1 -1 -1], 'ColumnSizes', [-1 -1]);
+
+% Capture Grid
+p3 = uiextras.BoxPanel('Parent', v1, 'Title', 'Capture Settings');
+g3 = uiextras.Grid('Parent', p3, 'Padding', 10, 'Spacing', 5);
+
+uicontrol('Parent', g3, 'style', 'text', 'String', 'Frames to Cap', 'HorizontalAlignment', 'Left');
+g.CaptureBtn = uicontrol('Parent', g3, 'style', 'pushbutton', 'String', 'Capture');
+g.FramesToCapCtrl = uicontrol('Parent', g3, 'style', 'edit', 'String', '30');
+uiextras.Empty('Parent', g3);
+
+set(g3, 'RowSizes', [-1 -1], 'ColumnSizes', [-1 -1]);
+
+set(v1, 'Sizes', [-1 -2 -1]);
 end
 
 function TrackingCtrl_Callback(src, e, gui)
