@@ -88,11 +88,33 @@ set(gui.SetRoiBtn, 'Callback', {@TrackerGUI @SetRoiBtn_Callback});
 set(gui.SetKernBtn, 'Callback', {@TrackerGUI @SetKernBtn_Callback});
 set(gui.TrackingCtrl, 'Callback', {@TrackerGUI @TrackingCtrl_Callback});
 
+set(gui.BackgroundSubCtrl, 'Callback', {@TrackerGUI @BackgroundSubCtrl_Callback});
+set(gui.SetBackgroundBtn, 'Callback', {@TrackerGUI @SetBackgroundBtn_Callback});
+
 % Start Preview Callback 
 set(gui.StartPreviewBtn, 'Callback', {@TrackerGUI @StartPreviewBtn_Callback});
 % Capture Btn
 set(gui.CaptureBtn, 'Callback', {@TrackerGUI @CaptureBtn_Callback});
 
+setappdata(gui.Window, 'gui_struct', gui);
+end
+
+function BackgroundSubCtrl_Callback(src, e, gui) 
+if(~(get(src, 'Value') == 1))
+    set(gui.SetBackgroundBtn, 'Enable', 'Off');
+else
+    set(gui.SetBackgroundBtn, 'Enable', 'On');
+end
+end
+
+function SetBackgroundBtn_Callback(src, e, gui)
+v = getappdata(gui.Window, 'video');
+vRes = get(v, 'VideoResolution');
+gui.Background = getsnapshot(v);
+f = figure('Name', 'Background', 'Visible', 'off', 'NumberTitle', 'off', 'Toolbar', 'none', 'MenuBar', 'none', 'Resize', 'off');
+ax = axes('Parent', f);
+imshow(gui.Background, 'Parent', ax, 'Border', 'tight');
+set(f, 'Visible', 'on');
 setappdata(gui.Window, 'gui_struct', gui);
 end
 
@@ -198,8 +220,8 @@ function gui_struct = create_preview(gui)
 
     % Figure to hold preview image
     gui.PreviewFig = figure('Visible', 'off', 'MenuBar', 'none', 'Toolbar', 'none', 'NumberTitle', 'off', 'Name', 'Preview', ...
-        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'characters', 'Renderer', 'zbuffer', ...
-        'DoubleBuffer', 'off');
+        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'characters', ...
+        'DoubleBuffer', 'on');
     
     figPos = get(gui.PreviewFig, 'Position');
 
@@ -337,6 +359,12 @@ function VideoPreview_Callback(v, e, hImage)
     end
     
     try
+        if(get(gui.BackgroundSubCtrl, 'Value') == 1 & isfield(gui, 'Background'))
+            if((class(e.Data) == class(gui.Background)))
+                e.Data = abs(gui.Background - e.Data);
+            end
+        end
+
         if(get(gui.ContrastCtrl, 'Value') == 1)
             set(gui.StretchField, 'String', 'Contrast Stretching On');
             data = histeq(e.Data, 64);
@@ -546,11 +574,15 @@ if(nargin == 1) % Show dialog box
         disp(lasterr);         
     end
 
+
     if(~isappdata(h, 'video'))
         % Video was not successfully set
         throw(MException('VideoError:SelectionCanceled', 'No device was selected through the GUI. Did you cancel the dialog?'));
     end
 
+    v = getappdata(h, 'video');
+
+    set(v, 'ReturnedColorSpace', 'grayscale');
 elseif(nargin == 3) % Don't actually do this...
     try
         i_a = imaqhwinfo;
