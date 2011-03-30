@@ -177,9 +177,11 @@ else
     v = getappdata(gui.Window, 'video');
 end
 
-if(strcmpi(get(v, 'Previewing'), 'on')) % Preview is Running
+if(strcmpi(get(v, 'Previewing'), 'on') | (isfield(gui, 'PreviewFig') & ishandle(gui.PreviewFig))) % Preview is Running
     %closepreview(v); % This is done in the close fcn for this figure
-    close(gui.PreviewFig);
+    if(ishandle(gui.PreviewFig))
+    	close(gui.PreviewFig);
+	end
 
     set(gui.TrackingCtrl, 'Value', 0);
     set(gui.SetKernBtn, 'Enable', 'off');
@@ -187,7 +189,6 @@ if(strcmpi(get(v, 'Previewing'), 'on')) % Preview is Running
     set(gui.StartPreviewBtn, 'String', 'Start Preview');
     setappdata(gui.Window, 'gui_struct', gui);
 else
-
     gui = create_preview(gui); % Create a preview window
 
     set(gui.StartPreviewBtn, 'String', 'Stop Preview');
@@ -250,7 +251,9 @@ function gui_struct = create_preview(gui)
 
     gui.Axes = axes('Parent', gui.ImagePanel);
 
-    data = zeros(vRes(2), vRes(1), 1);
+	numBands = get(v, 'NumberOfBands');
+
+	data = zeros(vRes(2), vRes(1), numBands);
 
     gui.PreviewImage = image(data, 'Parent', gui.Axes);
 
@@ -279,8 +282,15 @@ end
 
 function CaptureBtn_Callback(src, e, gui)
     if(~isdir('capture_data'))
-        throw(MException('CaptureError:NoCaptureDir','Cannot capture because capture_data directory does not exist'));
-        return;
+        try 
+        	[s,msgstr,msgid] = mkdir('capture_data');
+        	if(~s)
+        		throw(MException(msgid, msgstr));
+			end
+		catch e
+        	throw(MException('CaptureError:NoCaptureDir', ...
+        		sprintf('Cannot capture because capture_data directory does not exist and I could not create it.\nFilesystem returned: %s', e.message)));
+		end
     end
 
     filename = ['capture_data/' datestr(now, 'yyyymmdd-HHMMSS') '.avi'];
@@ -582,6 +592,7 @@ if(nargin == 1) % Show dialog box
 
     v = getappdata(h, 'video');
 
+    % Set colorspace to be returned by toolbox
     set(v, 'ReturnedColorSpace', 'grayscale');
 elseif(nargin == 3) % Don't actually do this...
     try
