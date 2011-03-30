@@ -96,7 +96,20 @@ set(gui.StartPreviewBtn, 'Callback', {@TrackerGUI @StartPreviewBtn_Callback});
 % Capture Btn
 set(gui.CaptureBtn, 'Callback', {@TrackerGUI @CaptureBtn_Callback});
 
+
+% set background subtraction callback
+set(v, 'FramesAcquiredFcn', {@FramesAcquiredFcn_Callback gui});
+set(v, 'FramesAcquiredFcnCount', 1); % Do this every frame
 setappdata(gui.Window, 'gui_struct', gui);
+end
+
+function FramesAcquiredFcn_Callback(src, e, v, gui)
+    disp('Acquired a frame');
+    if(get(gui.BackgroundSubCtrl, 'Value') == 1 & isfield(gui, 'Background'))
+        if((class(e.Data) == class(gui.Background)))
+            e.Data = abs(gui.Background - e.Data);
+        end
+    end
 end
 
 function BackgroundSubCtrl_Callback(src, e, gui) 
@@ -180,8 +193,8 @@ end
 if(strcmpi(get(v, 'Previewing'), 'on') | (isfield(gui, 'PreviewFig') & ishandle(gui.PreviewFig))) % Preview is Running
     %closepreview(v); % This is done in the close fcn for this figure
     if(ishandle(gui.PreviewFig))
-    	close(gui.PreviewFig);
-	end
+        close(gui.PreviewFig);
+    end
 
     set(gui.TrackingCtrl, 'Value', 0);
     set(gui.SetKernBtn, 'Enable', 'off');
@@ -251,9 +264,9 @@ function gui_struct = create_preview(gui)
 
     gui.Axes = axes('Parent', gui.ImagePanel);
 
-	numBands = get(v, 'NumberOfBands');
+    numBands = get(v, 'NumberOfBands');
 
-	data = zeros(vRes(2), vRes(1), numBands);
+    data = zeros(vRes(2), vRes(1), numBands);
 
     gui.PreviewImage = image(data, 'Parent', gui.Axes);
 
@@ -283,14 +296,14 @@ end
 function CaptureBtn_Callback(src, e, gui)
     if(~isdir('capture_data'))
         try 
-        	[s,msgstr,msgid] = mkdir('capture_data');
-        	if(~s)
-        		throw(MException(msgid, msgstr));
-			end
-		catch e
-        	throw(MException('CaptureError:NoCaptureDir', ...
-        		sprintf('Cannot capture because capture_data directory does not exist and I could not create it.\nFilesystem returned: %s', e.message)));
-		end
+            [s,msgstr,msgid] = mkdir('capture_data');
+            if(~s)
+                throw(MException(msgid, msgstr));
+            end
+        catch e
+            throw(MException('CaptureError:NoCaptureDir', ...
+                sprintf('Cannot capture because capture_data directory does not exist and I could not create it.\nFilesystem returned: %s', e.message)));
+        end
     end
 
     filename = ['capture_data/' datestr(now, 'yyyymmdd-HHMMSS') '.avi'];
@@ -369,11 +382,6 @@ function VideoPreview_Callback(v, e, hImage)
     end
     
     try
-        if(get(gui.BackgroundSubCtrl, 'Value') == 1 & isfield(gui, 'Background'))
-            if((class(e.Data) == class(gui.Background)))
-                e.Data = abs(gui.Background - e.Data);
-            end
-        end
 
         if(get(gui.ContrastCtrl, 'Value') == 1)
             set(gui.StretchField, 'String', 'Contrast Stretching On');
