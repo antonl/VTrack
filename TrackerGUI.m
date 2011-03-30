@@ -105,11 +105,6 @@ end
 
 function FramesAcquiredFcn_Callback(src, e, v, gui)
     disp('Acquired a frame');
-    if(get(gui.BackgroundSubCtrl, 'Value') == 1 & isfield(gui, 'Background'))
-        if((class(e.Data) == class(gui.Background)))
-            e.Data = abs(gui.Background - e.Data);
-        end
-    end
 end
 
 function BackgroundSubCtrl_Callback(src, e, gui) 
@@ -375,88 +370,95 @@ function VideoPreview_Callback(v, e, hImage)
     main_h = getappdata(hImage, 'main_h');
     gui = getappdata(main_h, 'gui_struct');
 
-    set(gui.TimeField, 'String', e.Timestamp);
-    
-    if(~strcmpi(e.Resolution, '')) % Apparently sometimes imaq forgets to set resolution?!
-        set(gui.ResField, 'String', e.Resolution);
-    end
-    
-    try
-
-        if(get(gui.ContrastCtrl, 'Value') == 1)
-            set(gui.StretchField, 'String', 'Contrast Stretching On');
-            data = histeq(e.Data, 64);
-        else
-            set(gui.StretchField, 'String', 'Contrast Stretching Off');
-            data = e.Data;
+    if(isa(hImage, 'double'))
+        set(gui.TimeField, 'String', e.Timestamp);
+        
+        if(~strcmpi(e.Resolution, '')) % Apparently sometimes imaq forgets to set resolution?!
+            set(gui.ResField, 'String', e.Resolution);
         end
+        
+        try
+            if(get(gui.BackgroundSubCtrl, 'Value') == 1 & isfield(gui, 'Background'))
+                e.Data = abs(int16(gui.Background) - int16(e.Data));            
+            end
 
-        if(get(gui.TrackingCtrl,'Value') == 1)
-            % Make sure rectangles exist
-            if(validate_roi_kern(gui))
-                % Do particle tracking
-                rpos = get(gui.RoiRect, 'Position');
-                kpos = get(gui.KernRect, 'Position');
+            if(get(gui.ContrastCtrl, 'Value') == 1)
+                set(gui.StretchField, 'String', 'Contrast Stretching On');
+                data = histeq(e.Data, 64);
+            else
+                set(gui.StretchField, 'String', 'Contrast Stretching Off');
+                data = e.Data;
+            end
 
-                roi = data(rpos(2):rpos(2)+rpos(4), rpos(1):rpos(1)+rpos(3)); 
-                kern = data(kpos(2):kpos(2)+kpos(4), kpos(1):kpos(1)+kpos(3)); 
+            if(get(gui.TrackingCtrl,'Value') == 1)
+                % Make sure rectangles exist
+                if(validate_roi_kern(gui))
+                    % Do particle tracking
+                    rpos = get(gui.RoiRect, 'Position');
+                    kpos = get(gui.KernRect, 'Position');
 
-                if(~isfield(gui, 'Position') || (isfield(gui, 'Position') & any(gui.Position < 0)))
-                    % Previous calculated center of mass
-                    gui.Position = round([-rpos(1)+kpos(1)+kpos(3)/2 -rpos(2)+kpos(2)+kpos(4)/2]); 
-                    gui.Accumulated = [0 0];
-                    pos = gui.Position;
-                else
-                    dat = conv2(double(roi), double(rot90(kern,2)), 'same');
+                    roi = data(rpos(2):rpos(2)+rpos(4), rpos(1):rpos(1)+rpos(3)); 
+                    kern = data(kpos(2):kpos(2)+kpos(4), kpos(1):kpos(1)+kpos(3)); 
 
-                    if(isempty(dat))
-                        throw(MException('TrackerGUI:BadConvolution', 'Could not calculate convolution'));
+                    if(~isfield(gui, 'Position') || (isfield(gui, 'Position') & any(gui.Position < 0)))
+                        % Previous calculated center of mass
+                        gui.Position = round([-rpos(1)+kpos(1)+kpos(3)/2 -rpos(2)+kpos(2)+kpos(4)/2]); 
+                        gui.Accumulated = [0 0];
+                        pos = gui.Position;
+                    else
+                        dat = conv2(double(roi), double(rot90(kern,2)), 'same');
+
+                        if(isempty(dat))
+                            throw(MException('TrackerGUI:BadConvolution', 'Could not calculate convolution'));
+                        end
+
+                        % Normalize
+                        mval = max(dat(:));
+                        dat = dat./mval; % Normalize
+                   
+                        % Threshold
+                        dat = (dat > 0.7).*dat;
+                        
+                        pos = get_approx_position(dat, rpos, gui.Position);
+                        
+                        gui.Accumulated = gui.Accumulated + pos - gui.Position;
+
+                        gui.Position = pos;
+
+                        if(max(abs(gui.Accumulated)) >= 1)
+                            rnd = round(gui.Accumulated);
+                            set(gui.KernRect, 'Position', [kpos(1:2)+rnd kpos(3:4)]);
+                            set(gui.RoiRect, 'Position', [rpos(1:2)+rnd rpos(3:4)]);
+                            gui.Accumulated = gui.Accumulated - rnd;
+                        end
+
+                        sz = size(data);
+                        dsz = size(dat);
+                        data(sz(1) - dsz(1)+1:sz(1), sz(2) - dsz(2)+1:sz(2)) = dat.*255;
                     end
 
-                    % Normalize
-                    mval = max(dat(:));
-                    dat = dat./mval; % Normalize
-               
-                    % Threshold
-                    dat = (dat > 0.7).*dat;
-                    
-                    pos = get_approx_position(dat, rpos, gui.Position);
-                    
-                    gui.Accumulated = gui.Accumulated + pos - gui.Position;
+                    tstr = sprintf('(%3.1f, %3.1f)', pos(1), pos(2));
 
-                    gui.Position = pos;
-
-                    if(max(abs(gui.Accumulated)) >= 1)
-                        rnd = round(gui.Accumulated);
-                        set(gui.KernRect, 'Position', [kpos(1:2)+rnd kpos(3:4)]);
-                        set(gui.RoiRect, 'Position', [rpos(1:2)+rnd rpos(3:4)]);
-                        gui.Accumulated = gui.Accumulated - rnd;
+                    if(isfield(gui, 'TrackingLabel') & ishandle(gui.TrackingLabel))
+                        set(gui.TrackingLabel, 'String', tstr, 'Position', [kpos(1) kpos(2)+kpos(4)]);
+                    else
+                        gui.TrackingLabel = text('Parent', gui.Axes, 'VerticalAlignment', 'top', ...
+                            'String', tstr, 'Color', [0.2 0.2 0.2], 'Position', [kpos(1) kpos(2)+kpos(4)],...
+                            'BackgroundColor', [0 0.9 0.2]);
+                        setappdata(gui.Window, 'gui_struct', gui);
                     end
-
-                    sz = size(data);
-                    dsz = size(dat);
-                    data(sz(1) - dsz(1)+1:sz(1), sz(2) - dsz(2)+1:sz(2)) = dat.*255;
-                end
-
-                tstr = sprintf('(%3.1f, %3.1f)', pos(1), pos(2));
-
-                if(isfield(gui, 'TrackingLabel') & ishandle(gui.TrackingLabel))
-                    set(gui.TrackingLabel, 'String', tstr, 'Position', [kpos(1) kpos(2)+kpos(4)]);
-                else
-                    gui.TrackingLabel = text('Parent', gui.Axes, 'VerticalAlignment', 'top', ...
-                        'String', tstr, 'Color', [0.2 0.2 0.2], 'Position', [kpos(1) kpos(2)+kpos(4)],...
-                        'BackgroundColor', [0 0.9 0.2]);
-                    setappdata(gui.Window, 'gui_struct', gui);
                 end
             end
+        catch err
+            data = e.Data;
+            rethrow(err);
         end
-    catch err
-        data = e.Data;
-        rethrow(err);
+        setappdata(gui.Window, 'gui_struct', gui);
+        set(hImage, 'CData', data);
+    else
+    	disp('Weird frame');
+    	disp(class(hImage));
     end
-    
-    setappdata(gui.Window, 'gui_struct', gui);
-    set(hImage, 'CData', data);
 end
 
 function pos = get_approx_position(dat, rpos, prev)
