@@ -379,7 +379,7 @@ function VideoPreview_Callback(v, e, hImage)
         
         try
             if(get(gui.BackgroundSubCtrl, 'Value') == 1 & isfield(gui, 'Background'))
-                e.Data = abs(int16(gui.Background) - int16(e.Data));            
+                e.Data = abs(int16(e.Data) - int16(gui.Background)); 
             end
 
             if(get(gui.ContrastCtrl, 'Value') == 1)
