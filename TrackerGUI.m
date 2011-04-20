@@ -88,11 +88,41 @@ set(gui.SetRoiBtn, 'Callback', {@TrackerGUI @SetRoiBtn_Callback});
 set(gui.SetKernBtn, 'Callback', {@TrackerGUI @SetKernBtn_Callback});
 set(gui.TrackingCtrl, 'Callback', {@TrackerGUI @TrackingCtrl_Callback});
 
+set(gui.BackgroundSubCtrl, 'Callback', {@TrackerGUI @BackgroundSubCtrl_Callback});
+set(gui.SetBackgroundBtn, 'Callback', {@TrackerGUI @SetBackgroundBtn_Callback});
+
 % Start Preview Callback 
 set(gui.StartPreviewBtn, 'Callback', {@TrackerGUI @StartPreviewBtn_Callback});
 % Capture Btn
 set(gui.CaptureBtn, 'Callback', {@TrackerGUI @CaptureBtn_Callback});
 
+
+% set background subtraction callback
+set(v, 'FramesAcquiredFcn', {@FramesAcquiredFcn_Callback gui});
+set(v, 'FramesAcquiredFcnCount', 1); % Do this every frame
+setappdata(gui.Window, 'gui_struct', gui);
+end
+
+function FramesAcquiredFcn_Callback(src, e, v, gui)
+    disp('Acquired a frame');
+end
+
+function BackgroundSubCtrl_Callback(src, e, gui) 
+if(~(get(src, 'Value') == 1))
+    set(gui.SetBackgroundBtn, 'Enable', 'Off');
+else
+    set(gui.SetBackgroundBtn, 'Enable', 'On');
+end
+end
+
+function SetBackgroundBtn_Callback(src, e, gui)
+v = getappdata(gui.Window, 'video');
+vRes = get(v, 'VideoResolution');
+gui.Background = getsnapshot(v);
+f = figure('Name', 'Background', 'Visible', 'off', 'NumberTitle', 'off', 'Toolbar', 'none', 'MenuBar', 'none', 'Resize', 'off');
+ax = axes('Parent', f);
+imshow(gui.Background, 'Parent', ax, 'Border', 'tight');
+set(f, 'Visible', 'on');
 setappdata(gui.Window, 'gui_struct', gui);
 end
 
@@ -155,9 +185,11 @@ else
     v = getappdata(gui.Window, 'video');
 end
 
-if(strcmpi(get(v, 'Previewing'), 'on')) % Preview is Running
+if(strcmpi(get(v, 'Previewing'), 'on') | (isfield(gui, 'PreviewFig') & ishandle(gui.PreviewFig))) % Preview is Running
     %closepreview(v); % This is done in the close fcn for this figure
-    close(gui.PreviewFig);
+    if(ishandle(gui.PreviewFig))
+        close(gui.PreviewFig);
+    end
 
     set(gui.TrackingCtrl, 'Value', 0);
     set(gui.SetKernBtn, 'Enable', 'off');
@@ -165,7 +197,6 @@ if(strcmpi(get(v, 'Previewing'), 'on')) % Preview is Running
     set(gui.StartPreviewBtn, 'String', 'Start Preview');
     setappdata(gui.Window, 'gui_struct', gui);
 else
-
     gui = create_preview(gui); % Create a preview window
 
     set(gui.StartPreviewBtn, 'String', 'Stop Preview');
@@ -198,8 +229,8 @@ function gui_struct = create_preview(gui)
 
     % Figure to hold preview image
     gui.PreviewFig = figure('Visible', 'off', 'MenuBar', 'none', 'Toolbar', 'none', 'NumberTitle', 'off', 'Name', 'Preview', ...
-        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'characters', 'Renderer', 'zbuffer', ...
-        'DoubleBuffer', 'off');
+        'CloseRequestFcn', {@TrackerGUI @PreviewCloseFcn}, 'Resize', 'off', 'Units', 'characters', ...
+        'DoubleBuffer', 'on');
     
     figPos = get(gui.PreviewFig, 'Position');
 
@@ -228,7 +259,9 @@ function gui_struct = create_preview(gui)
 
     gui.Axes = axes('Parent', gui.ImagePanel);
 
-    data = zeros(vRes(2), vRes(1), 1);
+    numBands = get(v, 'NumberOfBands');
+
+    data = zeros(vRes(2), vRes(1), numBands);
 
     gui.PreviewImage = image(data, 'Parent', gui.Axes);
 
@@ -257,8 +290,15 @@ end
 
 function CaptureBtn_Callback(src, e, gui)
     if(~isdir('capture_data'))
-        throw(MException('CaptureError:NoCaptureDir','Cannot capture because capture_data directory does not exist'));
-        return;
+        try 
+            [s,msgstr,msgid] = mkdir('capture_data');
+            if(~s)
+                throw(MException(msgid, msgstr));
+            end
+        catch e
+            throw(MException('CaptureError:NoCaptureDir', ...
+                sprintf('Cannot capture because capture_data directory does not exist and I could not create it.\nFilesystem returned: %s', e.message)));
+        end
     end
 
     filename = ['capture_data/' datestr(now, 'yyyymmdd-HHMMSS') '.avi'];
@@ -330,87 +370,95 @@ function VideoPreview_Callback(v, e, hImage)
     main_h = getappdata(hImage, 'main_h');
     gui = getappdata(main_h, 'gui_struct');
 
-    set(gui.TimeField, 'String', e.Timestamp);
-    
-    if(~strcmpi(e.Resolution, '')) % Apparently sometimes imaq forgets to set resolution?!
-        set(gui.ResField, 'String', e.Resolution);
-    end
-    
-    try
-        if(get(gui.ContrastCtrl, 'Value') == 1)
-            set(gui.StretchField, 'String', 'Contrast Stretching On');
-            data = histeq(e.Data, 64);
-        else
-            set(gui.StretchField, 'String', 'Contrast Stretching Off');
-            data = e.Data;
+    if(isa(hImage, 'double'))
+        set(gui.TimeField, 'String', e.Timestamp);
+        
+        if(~strcmpi(e.Resolution, '')) % Apparently sometimes imaq forgets to set resolution?!
+            set(gui.ResField, 'String', e.Resolution);
         end
+        
+        try
+            if(get(gui.BackgroundSubCtrl, 'Value') == 1 & isfield(gui, 'Background'))
+                e.Data = abs(int16(e.Data) - int16(gui.Background)); 
+            end
 
-        if(get(gui.TrackingCtrl,'Value') == 1)
-            % Make sure rectangles exist
-            if(validate_roi_kern(gui))
-                % Do particle tracking
-                rpos = get(gui.RoiRect, 'Position');
-                kpos = get(gui.KernRect, 'Position');
+            if(get(gui.ContrastCtrl, 'Value') == 1)
+                set(gui.StretchField, 'String', 'Contrast Stretching On');
+                data = histeq(e.Data, 64);
+            else
+                set(gui.StretchField, 'String', 'Contrast Stretching Off');
+                data = e.Data;
+            end
 
-                roi = data(rpos(2):rpos(2)+rpos(4), rpos(1):rpos(1)+rpos(3)); 
-                kern = data(kpos(2):kpos(2)+kpos(4), kpos(1):kpos(1)+kpos(3)); 
+            if(get(gui.TrackingCtrl,'Value') == 1)
+                % Make sure rectangles exist
+                if(validate_roi_kern(gui))
+                    % Do particle tracking
+                    rpos = get(gui.RoiRect, 'Position');
+                    kpos = get(gui.KernRect, 'Position');
 
-                if(~isfield(gui, 'Position') || (isfield(gui, 'Position') & any(gui.Position < 0)))
-                    % Previous calculated center of mass
-                    gui.Position = round([-rpos(1)+kpos(1)+kpos(3)/2 -rpos(2)+kpos(2)+kpos(4)/2]); 
-                    gui.Accumulated = [0 0];
-                    pos = gui.Position;
-                else
-                    dat = conv2(double(roi), double(rot90(kern,2)), 'same');
+                    roi = data(rpos(2):rpos(2)+rpos(4), rpos(1):rpos(1)+rpos(3)); 
+                    kern = data(kpos(2):kpos(2)+kpos(4), kpos(1):kpos(1)+kpos(3)); 
 
-                    if(isempty(dat))
-                        throw(MException('TrackerGUI:BadConvolution', 'Could not calculate convolution'));
+                    if(~isfield(gui, 'Position') || (isfield(gui, 'Position') & any(gui.Position < 0)))
+                        % Previous calculated center of mass
+                        gui.Position = round([-rpos(1)+kpos(1)+kpos(3)/2 -rpos(2)+kpos(2)+kpos(4)/2]); 
+                        gui.Accumulated = [0 0];
+                        pos = gui.Position;
+                    else
+                        dat = conv2(double(roi), double(rot90(kern,2)), 'same');
+
+                        if(isempty(dat))
+                            throw(MException('TrackerGUI:BadConvolution', 'Could not calculate convolution'));
+                        end
+
+                        % Normalize
+                        mval = max(dat(:));
+                        dat = dat./mval; % Normalize
+                   
+                        % Threshold
+                        dat = (dat > 0.7).*dat;
+                        
+                        pos = get_approx_position(dat, rpos, gui.Position);
+                        
+                        gui.Accumulated = gui.Accumulated + pos - gui.Position;
+
+                        gui.Position = pos;
+
+                        if(max(abs(gui.Accumulated)) >= 1)
+                            rnd = round(gui.Accumulated);
+                            set(gui.KernRect, 'Position', [kpos(1:2)+rnd kpos(3:4)]);
+                            set(gui.RoiRect, 'Position', [rpos(1:2)+rnd rpos(3:4)]);
+                            gui.Accumulated = gui.Accumulated - rnd;
+                        end
+
+                        sz = size(data);
+                        dsz = size(dat);
+                        data(sz(1) - dsz(1)+1:sz(1), sz(2) - dsz(2)+1:sz(2)) = dat.*255;
                     end
 
-                    % Normalize
-                    mval = max(dat(:));
-                    dat = dat./mval; % Normalize
-               
-                    % Threshold
-                    dat = (dat > 0.7).*dat;
-                    
-                    pos = get_approx_position(dat, rpos, gui.Position);
-                    
-                    gui.Accumulated = gui.Accumulated + pos - gui.Position;
+                    tstr = sprintf('(%3.1f, %3.1f)', pos(1), pos(2));
 
-                    gui.Position = pos;
-
-                    if(max(abs(gui.Accumulated)) >= 1)
-                        rnd = round(gui.Accumulated);
-                        set(gui.KernRect, 'Position', [kpos(1:2)+rnd kpos(3:4)]);
-                        set(gui.RoiRect, 'Position', [rpos(1:2)+rnd rpos(3:4)]);
-                        gui.Accumulated = gui.Accumulated - rnd;
+                    if(isfield(gui, 'TrackingLabel') & ishandle(gui.TrackingLabel))
+                        set(gui.TrackingLabel, 'String', tstr, 'Position', [kpos(1) kpos(2)+kpos(4)]);
+                    else
+                        gui.TrackingLabel = text('Parent', gui.Axes, 'VerticalAlignment', 'top', ...
+                            'String', tstr, 'Color', [0.2 0.2 0.2], 'Position', [kpos(1) kpos(2)+kpos(4)],...
+                            'BackgroundColor', [0 0.9 0.2]);
+                        setappdata(gui.Window, 'gui_struct', gui);
                     end
-
-                    sz = size(data);
-                    dsz = size(dat);
-                    data(sz(1) - dsz(1)+1:sz(1), sz(2) - dsz(2)+1:sz(2)) = dat.*255;
-                end
-
-                tstr = sprintf('(%3.1f, %3.1f)', pos(1), pos(2));
-
-                if(isfield(gui, 'TrackingLabel') & ishandle(gui.TrackingLabel))
-                    set(gui.TrackingLabel, 'String', tstr, 'Position', [kpos(1) kpos(2)+kpos(4)]);
-                else
-                    gui.TrackingLabel = text('Parent', gui.Axes, 'VerticalAlignment', 'top', ...
-                        'String', tstr, 'Color', [0.2 0.2 0.2], 'Position', [kpos(1) kpos(2)+kpos(4)],...
-                        'BackgroundColor', [0 0.9 0.2]);
-                    setappdata(gui.Window, 'gui_struct', gui);
                 end
             end
+        catch err
+            data = e.Data;
+            rethrow(err);
         end
-    catch err
-        data = e.Data;
-        rethrow(err);
+        setappdata(gui.Window, 'gui_struct', gui);
+        set(hImage, 'CData', data);
+    else
+    	disp('Weird frame');
+    	disp(class(hImage));
     end
-    
-    setappdata(gui.Window, 'gui_struct', gui);
-    set(hImage, 'CData', data);
 end
 
 function pos = get_approx_position(dat, rpos, prev)
@@ -454,40 +502,50 @@ g.Window = figure('Visible', 'off', 'Position', [(sz(3)-dim(1))/2 (sz(4)-dim(2))
     'Toolbar', 'none', 'MenuBar', 'none', 'NumberTitle', 'off', ...
     'Name', 'ParticleTrack', 'Resize', 'off');
 
-p1 = uiextras.BoxPanel('Parent', g.Window, 'Title', 'Capture Parameters');
+v1 = uiextras.VBox('Parent', g.Window, 'Spacing', 5);
+
+p1 = uiextras.BoxPanel('Parent', v1, 'Title', 'Camera Settings');
+
+% Camera parameters grid
 
 g1 = uiextras.Grid('Parent', p1, 'Padding', 10, 'Spacing', 5);
-
-% Column 1 of Grid
 uicontrol('Parent', g1, 'style', 'text', 'String', 'Exposure', 'HorizontalAlignment', 'Left');
 uicontrol('Parent', g1, 'style', 'text', 'String', 'Gain','HorizontalAlignment', 'Left');
 uicontrol('Parent', g1, 'style', 'text', 'String', 'Frame Rate', 'HorizontalAlignment', 'Left');
-g.StartPreviewBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Start Preview');
-uiextras.Empty('Parent', g1);
-
-uicontrol('Parent', g1, 'style', 'text', 'String', 'Tracking/Capture Settings:', 'HorizontalAlignment', 'Left');
-g.SetRoiBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Set ROI', 'Enable', 'off');
-uicontrol('Parent', g1, 'style', 'text', 'String', 'Frames to Cap', 'HorizontalAlignment', 'Left');
-
-uiextras.Empty('Parent', g1);
-g.CaptureBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'String', 'Capture');
-
-% Column 2 of Grid
 g.ExposureCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['1/10000|1/5000|1/2500|1/1111|1/526|1/256|1/128|1/64|1/32|1/16|1/8|1/4'], 'HorizontalAlignment', 'Right', 'Enable', 'off');
 g.GainCtrl = uicontrol('Parent', g1, 'style', 'slider', 'Max', 63, 'Min', 16, 'Value', 32, 'SliderStep', [1 1], 'Position', [0 0 1 0.3], 'Enable', 'off');
 g.FrameRateCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['60.0|30.0|15.0|7.5|5'], 'Enable', 'off');
-g.ContrastCtrl = uicontrol('Parent', g1, 'style', 'checkbox', 'String', 'Contrast Stretch', 'HorizontalAlignment', 'Right');
 
-uiextras.Empty('Parent', g1);
+set(g1, 'ColumnSizes', [-1 -1], 'RowSizes', [-1 -1 -1]);
 
-g.TrackingCtrl = uicontrol('Parent', g1, 'style', 'checkbox', 'String', 'Tracking', 'HorizontalAlignment', 'Right');
-g.SetKernBtn = uicontrol('Parent', g1, 'style', 'pushbutton', 'Enable', 'off', 'String', 'Set Kernel');
-g.FramesToCapCtrl = uicontrol('Parent', g1, 'style', 'edit', 'String', '30');
-uiextras.Empty('Parent', g1);
-uiextras.Empty('Parent', g1);
 
-set(g1, 'RowSizes', [30 30 30 30 30 30 30 30 -1 30], 'ColumnSizes', [-1 -1]);
-% End Grid
+% Tracking/Preview Grid
+p2 = uiextras.BoxPanel('Parent', v1, 'Title', 'Tracking/Preview Settings');
+g2 = uiextras.Grid('Parent', p2, 'Padding', 10, 'Spacing', 5);
+
+g.StartPreviewBtn = uicontrol('Parent', g2, 'style', 'pushbutton', 'String', 'Start Preview');
+g.BackgroundSubCtrl = uicontrol('Parent', g2, 'style', 'checkbox', 'String', 'Background Sub', 'HorizontalAlignment', 'Right');
+g.TrackingCtrl = uicontrol('Parent', g2, 'style', 'checkbox', 'String', 'Tracking', 'HorizontalAlignment', 'Right');
+g.SetRoiBtn = uicontrol('Parent', g2, 'style', 'pushbutton', 'String', 'Set ROI', 'Enable', 'off');
+
+g.ContrastCtrl = uicontrol('Parent', g2, 'style', 'checkbox', 'String', 'Contrast Stretch', 'HorizontalAlignment', 'Right');
+g.SetBackgroundBtn = uicontrol('Parent', g2, 'style', 'pushbutton', 'Enable', 'off', 'String', 'Set Background');
+uiextras.Empty('Parent', g2);
+g.SetKernBtn = uicontrol('Parent', g2, 'style', 'pushbutton', 'Enable', 'off', 'String', 'Set Kernel');
+set(g2, 'RowSizes', [-1 -1 -1 -1], 'ColumnSizes', [-1 -1]);
+
+% Capture Grid
+p3 = uiextras.BoxPanel('Parent', v1, 'Title', 'Capture Settings');
+g3 = uiextras.Grid('Parent', p3, 'Padding', 10, 'Spacing', 5);
+
+uicontrol('Parent', g3, 'style', 'text', 'String', 'Frames to Cap', 'HorizontalAlignment', 'Left');
+g.CaptureBtn = uicontrol('Parent', g3, 'style', 'pushbutton', 'String', 'Capture');
+g.FramesToCapCtrl = uicontrol('Parent', g3, 'style', 'edit', 'String', '30');
+uiextras.Empty('Parent', g3);
+
+set(g3, 'RowSizes', [-1 -1], 'ColumnSizes', [-1 -1]);
+
+set(v1, 'Sizes', [-1 -2 -1]);
 end
 
 function TrackingCtrl_Callback(src, e, gui)
@@ -536,11 +594,16 @@ if(nargin == 1) % Show dialog box
         disp(lasterr);         
     end
 
+
     if(~isappdata(h, 'video'))
         % Video was not successfully set
         throw(MException('VideoError:SelectionCanceled', 'No device was selected through the GUI. Did you cancel the dialog?'));
     end
 
+    v = getappdata(h, 'video');
+
+    % Set colorspace to be returned by toolbox
+    set(v, 'ReturnedColorSpace', 'grayscale');
 elseif(nargin == 3) % Don't actually do this...
     try
         i_a = imaqhwinfo;
