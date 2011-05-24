@@ -2,18 +2,25 @@
 #include "matrix.h"
 #include "mex.h"
 
+void subtract(const uint8_T *a, const uint8_T *b, mwSize m, mwSize n, int16_T *res) {
+    int i, j;
+
+    for(i = 0; i < m; i++) {
+        for(j = 0; j < n; j++) {
+            res[j + i*m] = a[j + i*m] - b[j + i*m]; 
+            //mexPrintf("[%3d,%3d]: %d - %d = %d \n", i, j, a[j + i*m], b[j + i*m], res[j + i*m]);
+        }
+    }
+
+}
+
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     /*
      * Function takes a two arrays of the same size and subtracts them.
      */
-    /*
-    */
-    mwSize n, m; // Contains dimensions of array 
-    mxArray *sans_bg; // Subtracted background
-    uint8_T *i1, *i2; // Pointers to actual input data
-    int16_T *res_data; // Pointer to resultant data
 
-    mwSize linsub[2], i;
+    mwSize m,n;
+    uint8_T *a, *b;
 
     if(nrhs != 2) {
         mexErrMsgTxt("Need two matricies to subtract\n");
@@ -27,22 +34,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mexErrMsgTxt("Arguments must be of class uint8\n");
     }
     
-    n = mxGetN(prhs[0]);
     m = mxGetM(prhs[0]);
+    n = mxGetN(prhs[0]);
 
-    plhs[0] = mxCreateNumericMatrix(n,m, mxINT16_CLASS, mxREAL);
+    plhs[0] = mxCreateNumericMatrix(m, n, mxINT16_CLASS, mxREAL);
+    a = (uint8_T *)mxGetData(prhs[0]);
+    b = (uint8_T *)mxGetData(prhs[1]);
 
-    i1 = (uint8_T *)mxGetData(prhs[0]);
-    i2 = (uint8_T *)mxGetData(prhs[1]);
-
-    res_data = (int16_T *)mxGetData(plhs[0]);
-
-    for(linsub[0] = 0; linsub[0] < m; linsub[0]++) {
-        for(linsub[1] = 0; linsub[1] < n linsub[1]++) {
-            i = mxCalcSingleSubscript(prhs[0], 2, linsub);   
-            res_data[i] = (int16_T)i1[i] - (int16_T)i2[i];
-            mexPrintf("%u\t",res_data[i]);  
-        }
-    }
-
+    subtract(a, b, m, n, mxGetPr(plhs[0])); 
 }
+
