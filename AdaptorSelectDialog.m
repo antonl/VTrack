@@ -56,10 +56,10 @@ classdef AdaptorSelectDialog < handle
                 end
             end
 
-            set(AdaptorCtrl, 'String', ad_str, 'Callback', @AdaptorCtrl_Callback);
-            set(DeviceCtrl, 'Callback', @DeviceCtrl_Callback, 'Enable', 'off');
-            set(VideoModeCtrl, 'Callback', @VideoModeCtrl_Callback, 'Enable', 'off');
-            set(DoneBtn, 'Callback', @DoneBtn_Callback, 'Enable', 'off');
+            set(gui.AdaptorCtrl, 'String', ad_str, 'Callback', @AdaptorCtrl_Callback);
+            set(gui.DeviceCtrl, 'Callback', @DeviceCtrl_Callback, 'Enable', 'off');
+            set(gui.VideoModeCtrl, 'Callback', @VideoModeCtrl_Callback, 'Enable', 'off');
+            set(gui.DoneBtn, 'Callback', @DoneBtn_Callback, 'Enable', 'off');
         end
 
         function AdaptorCtrl_Callback
