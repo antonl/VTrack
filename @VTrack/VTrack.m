@@ -39,24 +39,20 @@ classdef VTrack < handle
 
         function delete(gui)
         % Class destructor
-            
+            disp('Called destructor'); 
         end
         
         function SelectedVideo_Callback(obj, src, e)
         % We have all information to initialize video object
             try
-                delete(obj.SelectVideoDialog);
-                obj.video = videoinput(e.Data.VideoData{1}, e.Data.VideoData{2}, e.Data.VideoData{3});
+                obj.video = videoinput(e.VideoData{1}, e.VideoData{2}, e.VideoData{3});
             catch e
                 disp('Failed to initialize video');
                 rethrow(e);
             end
-        end
-        
-        function v = get.video(object)
-        % Accessor method for video object
-        % Should return nothing if the video is not initialized
-            v = object.video;
+
+            % Place delete statement after the video object has been initialized
+            delete(obj.SelectVideoDialog);
         end
     end
 end
