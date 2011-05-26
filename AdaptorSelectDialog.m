@@ -60,9 +60,16 @@ classdef AdaptorSelectDialog < handle
             set(gui.DeviceCtrl, 'Callback', @gui.DeviceCtrl_Callback, 'Enable', 'off');
             set(gui.VideoModeCtrl, 'Callback', @gui.VideoModeCtrl_Callback, 'Enable', 'off');
             set(gui.DoneBtn, 'Callback', @gui.DoneBtn_Callback, 'Enable', 'off');
+
+            set(gui.Dialog, 'CloseRequestFcn', @gui.DialogCloseFcn_Callback);
         end
 
         function delete(gui)
+            delete(gui.Dialog);
+        end
+
+        function DialogCloseFcn_Callback(gui, src, e)
+            notify(gui, 'ClosedDialog', ClosedDialogEvent);
         end
 
         function AdaptorCtrl_Callback(gui, src, e)
@@ -173,5 +180,6 @@ classdef AdaptorSelectDialog < handle
 
     events
         SelectedVideo        
+        ClosedDialog
     end
 end

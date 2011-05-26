@@ -26,6 +26,7 @@ classdef VTrack < handle
 
                 % Add listener for event called when user selects video mode
                 addlistener(obj.SelectVideoDialog, 'SelectedVideo', @obj.SelectedVideo_Callback);
+                addlistener(obj.SelectVideoDialog, 'ClosedDialog', @obj.ClosedSelectVideo_Callback);
 
                 % Create main user interface
                 %obj.UserInterface = MainGui;
@@ -39,9 +40,14 @@ classdef VTrack < handle
 
         function delete(gui)
         % Class destructor
-            disp('Called destructor'); 
+            fprintf('Called destructor\n'); 
         end
-        
+       
+        function ClosedSelectVideo_Callback(obj, src, e)
+            fprintf('Closed dialog before video mode was selected.\n');
+            delete(obj.SelectVideoDialog);
+        end
+
         function SelectedVideo_Callback(obj, src, e)
         % We have all information to initialize video object
             try
