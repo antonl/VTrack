@@ -56,24 +56,27 @@ classdef AdaptorSelectDialog < handle
                 end
             end
 
-            set(gui.AdaptorCtrl, 'String', ad_str, 'Callback', @AdaptorCtrl_Callback);
-            set(gui.DeviceCtrl, 'Callback', @DeviceCtrl_Callback, 'Enable', 'off');
-            set(gui.VideoModeCtrl, 'Callback', @VideoModeCtrl_Callback, 'Enable', 'off');
-            set(gui.DoneBtn, 'Callback', @DoneBtn_Callback, 'Enable', 'off');
+            set(gui.AdaptorCtrl, 'String', ad_str, 'Callback', @gui.AdaptorCtrl_Callback);
+            set(gui.DeviceCtrl, 'Callback', @gui.DeviceCtrl_Callback, 'Enable', 'off');
+            set(gui.VideoModeCtrl, 'Callback', @gui.VideoModeCtrl_Callback, 'Enable', 'off');
+            set(gui.DoneBtn, 'Callback', @gui.DoneBtn_Callback, 'Enable', 'off');
         end
 
-        function AdaptorCtrl_Callback
-            aId = get(AdaptorCtrl, 'Value');
+        function delete(gui)
+        end
+
+        function AdaptorCtrl_Callback(gui, src, e)
+            aId = get(gui.AdaptorCtrl, 'Value');
 
             i_a = imaqhwinfo;
-            Adaptor = imaqhwinfo(i_a.InstalledAdaptors{gui.aId});
+            Adaptor = imaqhwinfo(i_a.InstalledAdaptors{aId});
 
-            set(DoneBtn, 'Enable', 'off');
+            set(gui.DoneBtn, 'Enable', 'off');
 
             if(numel(Adaptor.DeviceIDs) < 1)
                 % No devices available, don't throw exception though. Devices may be
                 % available in another adaptor
-                set(DeviceCtrl, 'String', 'None', 'Enable', 'off');
+                set(gui.DeviceCtrl, 'String', 'None', 'Enable', 'off');
                 return;
             end
             
@@ -86,27 +89,27 @@ classdef AdaptorSelectDialog < handle
                 end
             end
 
-            set(DeviceCtrl, 'String', dev_str, 'Enable', 'on');
+            set(gui.DeviceCtrl, 'String', dev_str, 'Enable', 'on');
         end
 
-        function DeviceCtrl_Callback
+        function DeviceCtrl_Callback(gui, src, e)
             % Adaptor chosen
-            aId = get(AdaptorCtrl, 'Value');
+            aId = get(gui.AdaptorCtrl, 'Value');
 
             i_a = imaqhwinfo;
             Adaptor = imaqhwinfo(i_a.InstalledAdaptors{aId});
 
             % Populate devices
-            dId = get(DeviceCtrl, 'Value');
+            dId = get(gui.DeviceCtrl, 'Value');
             
             dName = Adaptor.DeviceIDs{dId};
             Device = imaqhwinfo(Adaptor.AdaptorName, dName);
             
-            set(DoneBtn, 'Enable', 'off');
+            set(gui.DoneBtn, 'Enable', 'off');
 
-            if(numel(gui.Device.SupportedFormats) < 1)
+            if(numel(Device.SupportedFormats) < 1)
                 % Device has no supported formats
-                set(VideoModeCtrl, 'Enable', 'off', 'String', 'None');
+                set(gui.VideoModeCtrl, 'Enable', 'off', 'String', 'None');
                 return;
             end
 
@@ -120,48 +123,51 @@ classdef AdaptorSelectDialog < handle
                 end
             end
 
-            set(VideoModeCtrl, 'Enable', 'on', 'String', format_str);
+            set(gui.VideoModeCtrl, 'Enable', 'on', 'String', format_str);
         end
 
-        function VideoModeCtrl_Callback
-            % Available adaptors`
-            aId = get(AdaptorCtrl, 'Value');
+        function VideoModeCtrl_Callback(gui, src, e)
+            % Available adaptors
+            aId = get(gui.AdaptorCtrl, 'Value');
 
             i_a = imaqhwinfo;
             Adaptor = imaqhwinfo(i_a.InstalledAdaptors{aId});
 
             % Available devices
-            dId = get(DeviceCtrl, 'Value');
+            dId = get(gui.DeviceCtrl, 'Value');
             
             dName = Adaptor.DeviceIDs{dId};
             Device = imaqhwinfo(Adaptor.AdaptorName, dName);
 
-            fId = get(VideoModeCtrl, 'Value');
+            fId = get(gui.VideoModeCtrl, 'Value');
 
             Format = Device.SupportedFormats{fId};
             
-            set(DoneBtn, 'Enable', 'on');
+            set(gui.DoneBtn, 'Enable', 'on');
         end
 
-        function DoneBtn_Callback(obj)
-            % Available adaptors`
-            aId = get(AdaptorCtrl, 'Value');
+        function DoneBtn_Callback(gui, src, e)
+            % Hide dialog. It's just easier this way. It doesn't get closed by user 
+            set(gui.Dialog, 'Visible', 'off');
+
+            % Available adaptors
+            aId = get(gui.AdaptorCtrl, 'Value');
 
             i_a = imaqhwinfo;
             Adaptor = imaqhwinfo(i_a.InstalledAdaptors{aId});
 
             % Available devices
-            dId = get(DeviceCtrl, 'Value');
+            dId = get(gui.DeviceCtrl, 'Value');
             
             dName = Adaptor.DeviceIDs{dId};
             Device = imaqhwinfo(Adaptor.AdaptorName, dName);
 
-            fId = get(VideoModeCtrl, 'Value');
+            fId = get(gui.VideoModeCtrl, 'Value');
 
             Format = Device.SupportedFormats{fId};
 
             % Trigger the finished initializing event
-            notify(obj, 'SelectedVideo', VideoSelectedEvent({Adaptor.AdaptorName dId Format}));
+            notify(gui, 'SelectedVideo', VideoSelectedEvent({Adaptor.AdaptorName dId Format}));
         end
     end
 

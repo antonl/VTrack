@@ -119,11 +119,16 @@ function SetBackgroundBtn_Callback(src, e, gui)
 v = getappdata(gui.Window, 'video');
 vRes = get(v, 'VideoResolution');
 gui.Background = getsnapshot(v);
-f = figure('Name', 'Background', 'Visible', 'off', 'NumberTitle', 'off', 'Toolbar', 'none', 'MenuBar', 'none', 'Resize', 'off');
-ax = axes('Parent', f);
-imshow(gui.Background, 'Parent', ax, 'Border', 'tight');
-set(f, 'Visible', 'on');
-setappdata(gui.Window, 'gui_struct', gui);
+disp(class(gui.Background));
+if(~isa(gui.Background,'uint8'))
+    throw(MException('VideoError:BadBackgroundFrame', 'Didnt get a uint8 frame for background!'));
+else
+    f = figure('Name', 'Background', 'Visible', 'off', 'NumberTitle', 'off', 'Toolbar', 'none', 'MenuBar', 'none', 'Resize', 'off');
+    ax = axes('Parent', f);
+    imshow(gui.Background, 'Parent', ax, 'Border', 'tight');
+    set(f, 'Visible', 'on');
+    setappdata(gui.Window, 'gui_struct', gui);
+end
 end
 
 function SetRoiBtn_Callback(src, e, gui)
@@ -370,7 +375,7 @@ function VideoPreview_Callback(v, e, hImage)
     main_h = getappdata(hImage, 'main_h');
     gui = getappdata(main_h, 'gui_struct');
 
-    if(isa(hImage, 'double'))
+    if(isa(e.Data, 'uint8'))
         set(gui.TimeField, 'String', e.Timestamp);
         
         if(~strcmpi(e.Resolution, '')) % Apparently sometimes imaq forgets to set resolution?!
@@ -379,7 +384,7 @@ function VideoPreview_Callback(v, e, hImage)
         
         try
             if(get(gui.BackgroundSubCtrl, 'Value') == 1 & isfield(gui, 'Background'))
-                e.Data = abs(int16(e.Data) - int16(gui.Background)); 
+                e.Data = abs(bg_subtract(e.Data, gui.Background));
             end
 
             if(get(gui.ContrastCtrl, 'Value') == 1)
@@ -451,7 +456,7 @@ function VideoPreview_Callback(v, e, hImage)
             end
         catch err
             data = e.Data;
-            rethrow(err);
+            disp(err);
         end
         setappdata(gui.Window, 'gui_struct', gui);
         set(hImage, 'CData', data);
