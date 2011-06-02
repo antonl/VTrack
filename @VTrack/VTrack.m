@@ -2,7 +2,7 @@ classdef VTrack < handle
     properties (SetAccess=private)
         video
         SelectVideoDialog
-        UserInterfaceDialog
+        UserInterface
     end
 
     methods
@@ -29,9 +29,9 @@ classdef VTrack < handle
                 addlistener(obj.SelectVideoDialog, 'ClosedDialog', @obj.ClosedSelectVideo_Callback);
 
                 % Create main user interface
-                %obj.UserInterface = MainGui;
+                obj.UserInterface = MainWindow;
 
-                % Display it
+                % Display dialog when we receive SelectedVideo event
             else
                 ;
                 % Create video object from arguments
@@ -46,12 +46,14 @@ classdef VTrack < handle
         function ClosedSelectVideo_Callback(obj, src, e)
             fprintf('Closed dialog before video mode was selected.\n');
             delete(obj.SelectVideoDialog);
+            delete(obj.UserInterface);
         end
 
         function SelectedVideo_Callback(obj, src, e)
         % We have all information to initialize video object
             try
                 obj.video = videoinput(e.VideoData{1}, e.VideoData{2}, e.VideoData{3});
+                set(obj.UserInterface.Window, 'Visible', 'on');
             catch e
                 disp('Failed to initialize video');
                 rethrow(e);
