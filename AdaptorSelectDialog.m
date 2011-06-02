@@ -65,11 +65,13 @@ classdef AdaptorSelectDialog < handle
         end
 
         function delete(gui)
-            delete(gui.Dialog);
+            try
+                delete(gui.Dialog);
+            end
         end
 
         function DialogCloseFcn_Callback(gui, src, e)
-            notify(gui, 'ClosedDialog', ClosedDialogEvent);
+            notify(gui, 'ClosedDialog', event.EventData);
         end
 
         function AdaptorCtrl_Callback(gui, src, e)

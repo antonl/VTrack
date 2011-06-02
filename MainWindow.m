@@ -1,6 +1,7 @@
 classdef MainWindow < handle
     properties (SetAccess = private, Hidden)
         Window
+        Preview
         ExposureCtrl
         GainCtrl
         FrameRateCtrl
@@ -22,7 +23,7 @@ classdef MainWindow < handle
             
             gui.Window = figure('Visible', 'off', 'Position', [(sz(3)-dim(1))/2 (sz(4)-dim(2))/2 dim], ...
                 'Toolbar', 'none', 'MenuBar', 'none', 'NumberTitle', 'off', ...
-                'Name', 'VTrack', 'Resize', 'off');
+                'Name', 'VTrack', 'Resize', 'off', 'CloseRequestFcn', @gui.CloseMainWindow_Callback);
 
             v1 = uiextras.VBox('Parent', gui.Window, 'Spacing', 5);
 
@@ -68,7 +69,26 @@ classdef MainWindow < handle
             set(g3, 'RowSizes', [-1 -1], 'ColumnSizes', [-1 -1]);
 
             set(v1, 'Sizes', [-1 -2 -1]);
+
+            gui.Preview = PreviewWindow([480, 640], 3);
         end
+
+        function CloseMainWindow_Callback(obj, src, e)
+            notify(obj, 'ClosedMainWindow', event.EventData);
+        end
+
+        function delete(obj)
+            try
+                % The try block is here to suppress warnings caused by the window being 
+                % already deleted for whatever reason
+                delete(obj.Preview);
+                delete(obj.Window);
+            end
+        end
+    end
+
+    events
+        ClosedMainWindow
     end
 end
 

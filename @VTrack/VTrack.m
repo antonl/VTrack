@@ -31,6 +31,8 @@ classdef VTrack < handle
                 % Create main user interface
                 obj.UserInterface = MainWindow;
 
+                addlistener(obj.UserInterface, 'ClosedMainWindow', @obj.ClosedMainWindow_Callback);
+                addlistener(obj.UserInterface.Preview, 'ClosedPreview', @obj.ClosedPreview_Callback);
                 % Display dialog when we receive SelectedVideo event
             else
                 ;
@@ -49,11 +51,24 @@ classdef VTrack < handle
             delete(obj.UserInterface);
         end
 
+        function ClosedPreview_Callback(obj, src, e)
+            fprintf('Closed preview dialog\n');
+            delete(obj.UserInterface.Preview);
+        end
+
+        function ClosedMainWindow_Callback(obj, src, e)
+            fprintf('Closed main window\n');
+            delete(obj.UserInterface);
+        end
+
         function SelectedVideo_Callback(obj, src, e)
         % We have all information to initialize video object
             try
                 obj.video = videoinput(e.VideoData{1}, e.VideoData{2}, e.VideoData{3});
+                set(obj.video, 'ReturnedColorSpace', 'grayscale');
+                fprintf('Warning: Toolbox mode set to return values in grayscale\n');
                 set(obj.UserInterface.Window, 'Visible', 'on');
+                set(obj.UserInterface.Preview.Window, 'Visible', 'on');
             catch e
                 disp('Failed to initialize video');
                 rethrow(e);
