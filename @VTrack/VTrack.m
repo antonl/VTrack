@@ -1,6 +1,6 @@
 classdef VTrack < handle
     properties (SetAccess=private)
-        video
+        Video
         SelectVideoDialog
         UserInterface
     end
@@ -17,25 +17,22 @@ classdef VTrack < handle
             end
 
             if nargin == 0
-                obj.video = 'not available';
+                obj.Video = 'not available';
 
                 % Create select video dialog
                 obj.SelectVideoDialog = AdaptorSelectDialog;
+                
+                % Create main user interface
+                obj.UserInterface = MainWindow(obj);
 
                 set(obj.SelectVideoDialog.Dialog, 'Visible', 'on');
 
                 % Add listener for event called when user selects video mode
                 addlistener(obj.SelectVideoDialog, 'SelectedVideo', @obj.SelectedVideo_Callback);
                 addlistener(obj.SelectVideoDialog, 'ClosedDialog', @obj.ClosedSelectVideo_Callback);
-
-                % Create main user interface
-                obj.UserInterface = MainWindow;
-
                 addlistener(obj.UserInterface, 'ClosedMainWindow', @obj.ClosedMainWindow_Callback);
-                addlistener(obj.UserInterface.Preview, 'ClosedPreview', @obj.ClosedPreview_Callback);
-                % Display dialog when we receive SelectedVideo event
             else
-                ;
+                throw MException('VTrack:NotImplemented:ConstructFromArgs', 'Cannot construct VTrack from arguments. Please call VTrack without arguments and use the dialogs.');
                 % Create video object from arguments
             end
         end
@@ -51,10 +48,6 @@ classdef VTrack < handle
             delete(obj.UserInterface);
         end
 
-        function ClosedPreview_Callback(obj, src, e)
-            fprintf('Closed preview dialog\n');
-            delete(obj.UserInterface.Preview);
-        end
 
         function ClosedMainWindow_Callback(obj, src, e)
             fprintf('Closed main window\n');
@@ -64,11 +57,12 @@ classdef VTrack < handle
         function SelectedVideo_Callback(obj, src, e)
         % We have all information to initialize video object
             try
-                obj.video = videoinput(e.VideoData{1}, e.VideoData{2}, e.VideoData{3});
-                set(obj.video, 'ReturnedColorSpace', 'grayscale');
+                obj.Video = videoinput(e.VideoData{1}, e.VideoData{2}, e.VideoData{3});
+                set(obj.Video, 'ReturnedColorSpace', 'grayscale');
                 fprintf('Warning: Toolbox mode set to return values in grayscale\n');
-                set(obj.UserInterface.Window, 'Visible', 'on');
-                set(obj.UserInterface.Preview.Window, 'Visible', 'on');
+
+                % Request creation of preview window and connect callbacks
+                notify(obj, 'VideoObjectReady', VideoObjectReadyEvent(obj.Video));
             catch e
                 disp('Failed to initialize video');
                 rethrow(e);
@@ -77,5 +71,9 @@ classdef VTrack < handle
             % Place delete statement after the video object has been initialized
             delete(obj.SelectVideoDialog);
         end
+    end
+
+    events
+        VideoObjectReady
     end
 end

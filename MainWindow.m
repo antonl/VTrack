@@ -1,5 +1,5 @@
 classdef MainWindow < handle
-    properties (SetAccess = private, Hidden)
+    properties (SetAccess = private)
         Window
         Preview
         ExposureCtrl
@@ -17,7 +17,7 @@ classdef MainWindow < handle
     end
 
     methods
-        function gui = MainWindow
+        function gui = MainWindow(parent)
             sz = get(0, 'ScreenSize');
             dim = [250 500]; % Size of figure window
             
@@ -70,11 +70,29 @@ classdef MainWindow < handle
 
             set(v1, 'Sizes', [-1 -2 -1]);
 
-            gui.Preview = PreviewWindow([480, 640], 3);
+            % Wait until video object is created
+            addlistener(parent, 'VideoObjectReady', @gui.VideoObjectReady_Callback);
         end
 
         function CloseMainWindow_Callback(obj, src, e)
             notify(obj, 'ClosedMainWindow', event.EventData);
+        end
+
+        function VideoObjectReady_Callback(obj, src, e)
+            set(obj.Window, 'Visible', 'on');
+
+            v = e.Video;
+            obj.Preview = PreviewWindow(v.VideoResolution, v.NumberOfBands);
+
+            addlistener(obj.Preview, 'ClosedPreview', @obj.ClosedPreview_Callback);
+            set(obj.Preview.Window, 'Visible', 'on');
+
+            % Create preview window based on this information
+        end
+
+        function ClosedPreview_Callback(obj, src, e)
+            fprintf('Closed preview dialog\n');
+            delete(obj.Preview);
         end
 
         function delete(obj)
