@@ -17,7 +17,7 @@ classdef PreviewWindow < handle
             sz = get(0, 'ScreenSize');
 
             % Height of status bar in characters
-            statusCharHeight = 1.5;
+            statusCharHeight = 1.4;
 
             timeSecWidth = 20;
             resSecWidth = 20;
@@ -32,7 +32,7 @@ classdef PreviewWindow < handle
                 'CloseRequestFcn', @gui.PreviewCloseFcn, 'Resize', 'off', 'Units', 'characters', ...
                 'DoubleBuffer', 'on');
             
-            figPos = get(gui.Window, 'Position');
+            figPos = get(gui.Window, 'OuterPosition');
 
             % Panel to hold status information
             StatusPanel = uipanel('Parent', gui.Window, 'Units', 'characters', 'BorderType', 'none', ...
@@ -54,17 +54,20 @@ classdef PreviewWindow < handle
             % Panel to hold preview image
             ImagePanel = uipanel('Parent', gui.Window, 'Units', 'characters', 'BorderType', 'none', ...
                 'Position', [0 statusCharHeight figPos(3) figPos(4)-statusCharHeight]);
-
             set(ImagePanel, 'Units', 'normalized');
 
             Axes = axes('Parent', ImagePanel);
+
+            set(Axes, 'Visible', 'on', 'CLimMode', 'manual', 'CLim', [0 255],...
+                'ALimMode', 'manual', 'XLimMode', 'manual', 'YLimMode', 'manual', ...
+                'ZLimMode', 'manual', 'XTickMode', 'manual', 'YTickMode', 'manual', ...
+                'ZTickMode', 'manual');
 
             numBands = numberOfBands; 
             data = zeros(vRes(2), vRes(1), numBands);
 
             gui.PreviewImage = image(data, 'Parent', Axes);
 
-        
             set(Axes, 'Units', 'pixels');
             
             set(Axes, 'XLim', [1 vRes(1)], 'YLim', [1 vRes(2)], 'Position', [0 0 vRes(1) vRes(2)]);
@@ -72,17 +75,15 @@ classdef PreviewWindow < handle
             % Resize figure so that no rescaling needs to be done
             set(StatusPanel, 'Units', 'pixels');
             statusPos = get(StatusPanel, 'Position');
-            set(StatusPanel, 'Units', 'normalized');
-
-            set(gui.Window, 'Units', 'pixels');
             figWidth = vRes(1);
-            figHeight = vRes(2) + statusPos(4);
+            figHeight = vRes(2) + statusPos(4); 
+            set(gui.Window, 'Units', 'pixels');
             set(gui.Window, 'Position', [(sz(3)-figWidth)/2 (sz(4)-figHeight)/2 figWidth figHeight]);
-
-            set(Axes, 'Visible', 'on', 'CLimMode', 'manual', 'CLim', [0 255],...
-                'ALimMode', 'manual', 'XLimMode', 'manual', 'YLimMode', 'manual', ...
-                'ZLimMode', 'manual', 'XTickMode', 'manual', 'YTickMode', 'manual', ...
-                'ZTickMode', 'manual');
+        end
+        
+        function ReceiveData_Callback(obj, v, e, hImage) 
+            %% Function is called when imaq updates a frame
+            hImage = e.Data;
         end
 
         function PreviewCloseFcn(obj, src, e)

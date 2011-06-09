@@ -79,20 +79,78 @@ classdef MainWindow < handle
         end
 
         function VideoObjectReady_Callback(obj, src, e)
-            set(obj.Window, 'Visible', 'on');
-
             v = e.Video;
             obj.Preview = PreviewWindow(v.VideoResolution, v.NumberOfBands);
 
             addlistener(obj.Preview, 'ClosedPreview', @obj.ClosedPreview_Callback);
-            set(obj.Preview.Window, 'Visible', 'on');
 
-            % Create preview window based on this information
+            % Create callbacks for controls
+
+            pr = propinfo(v);
+
+            if(isfield(pr, 'Gain'))
+                % Turn off automatic gain adjustment
+                set(v, 'GainMode', 'Manual');
+                set(obj.GainCtrl, 'Enable', 'on', 'Callback', @obj.GainCtrl_Callback);
+            else
+            	fprintf('Warning: Couldn''t turn off automatic gain adjustment.\n');
+                set(obj.GainCtrl, 'Enable', 'off');
+            end
+            
+            if(isfield(pr, 'Exposure'))
+                set(v, 'ExposureMode', 'Manual');
+                set(obj.ExposureCtrl, 'Enable', 'on', 'Callback', @obj.ExposureCtrl_Callback);
+            else
+            	fprintf('Warning: Can''t control exposure.\n');
+                set(obj.ExposureCtrl, 'Enable', 'off');
+            end
+
+            if(isfield(pr, 'FrameRate'))
+                set(obj.FrameRateCtrl, 'Enable', 'on', 'Callback', @obj.FrameRateCtrl_Callback);
+            else
+            	fprintf('Warning: Can''t control frame rate.\n');
+                set(obj.FrameRateCtrl, 'Enable', 'off');
+            end
+
+            set(obj.SetRoiBtn, 'Callback', @obj.SetRoiBtn_Callback);
+            set(obj.SetKernBtn, 'Callback', @obj.SetKernBtn_Callback);
+            set(obj.TrackingCtrl, 'Callback', @obj.ChangedState_Callback);
+
+            set(obj.BackgroundSubCtrl, 'Callback', @obj.ChangedState_Callback);
+            set(obj.SetBackgroundBtn, 'Callback', @obj.ChangedState_Callback);
+
+            % Start Preview Callback 
+            set(obj.StartPreviewBtn, 'Callback', @obj.StartPreviewBtn_Callback);
+            % Capture Btn
+            set(obj.CaptureBtn, 'Callback', @obj.CaptureBtn_Callback);
+
+            set(obj.ContrastCtrl, 'Callback', @obj.ChangedState_Callback);
+
+             
+            %set(v, 'FramesAcquiredFcn', @obj.FramesAcquiredFcn_Callback);
+            %set(v, 'FramesAcquiredFcnCount', 1); % Do this every frame
+
+            % Set windows visible
+            set(obj.Window, 'Visible', 'on');
+
+            % Software is now ready to be used 
         end
 
         function ClosedPreview_Callback(obj, src, e)
-            fprintf('Closed preview dialog\n');
             delete(obj.Preview);
+        end
+
+        function StartPreviewBtn_Callback(obj, src, e)
+            notify(obj, 'ChangedPreviewState');
+        end
+
+        function CaptureBtn_Callback(obj, src, e) 
+            notify(obj, 'WantCapture');
+        end
+
+        function ChangedState_Callback(obj, src, e) 
+            % Called when most control values are modified in the GUI
+            notify(obj, 'ChangedOptions', ChangedOptionsEvent(src));
         end
 
         function delete(obj)
@@ -100,6 +158,7 @@ classdef MainWindow < handle
                 % The try block is here to suppress warnings caused by the window being 
                 % already deleted for whatever reason
                 delete(obj.Preview);
+                fprintf('Closed main window.\n');
                 delete(obj.Window);
             end
         end
@@ -107,6 +166,9 @@ classdef MainWindow < handle
 
     events
         ClosedMainWindow
+        ChangedOptions
+        ChangedPreviewState
+        WantCapture
     end
 end
 

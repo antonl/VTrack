@@ -50,7 +50,6 @@ classdef VTrack < handle
 
 
         function ClosedMainWindow_Callback(obj, src, e)
-            fprintf('Closed main window\n');
             delete(obj.UserInterface);
         end
 
