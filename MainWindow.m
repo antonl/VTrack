@@ -80,6 +80,7 @@ classdef MainWindow < handle
 
         function VideoObjectReady_Callback(obj, src, e)
             v = e.Video;
+            % Create preview window
             obj.Preview = PreviewWindow(v.VideoResolution, v.NumberOfBands);
 
             addlistener(obj.Preview, 'ClosedPreview', @obj.ClosedPreview_Callback);
@@ -112,19 +113,19 @@ classdef MainWindow < handle
                 set(obj.FrameRateCtrl, 'Enable', 'off');
             end
 
-            set(obj.SetRoiBtn, 'Callback', @obj.SetRoiBtn_Callback);
-            set(obj.SetKernBtn, 'Callback', @obj.SetKernBtn_Callback);
-            set(obj.TrackingCtrl, 'Callback', @obj.ChangedState_Callback);
+            set(obj.SetRoiBtn, 'Callback', @obj.SetRoiBtn_Callback, 'Tag', 'setroi');
+            set(obj.SetKernBtn, 'Callback', @obj.SetKernBtn_Callback, 'Tag', 'setkern');
+            set(obj.TrackingCtrl, 'Callback', @obj.ChangedState_Callback, 'Tag', 'tracking');
 
-            set(obj.BackgroundSubCtrl, 'Callback', @obj.ChangedState_Callback);
-            set(obj.SetBackgroundBtn, 'Callback', @obj.ChangedState_Callback);
+            set(obj.BackgroundSubCtrl, 'Callback', @obj.ChangedState_Callback, 'Tag', 'backgroundsub');
+            set(obj.SetBackgroundBtn, 'Callback', @obj.ChangedState_Callback, 'Tag', 'setbackground');
 
             % Start Preview Callback 
-            set(obj.StartPreviewBtn, 'Callback', @obj.StartPreviewBtn_Callback);
+            set(obj.StartPreviewBtn, 'Callback', @obj.StartPreviewBtn_Callback, 'Tag', 'startpreview');
             % Capture Btn
-            set(obj.CaptureBtn, 'Callback', @obj.CaptureBtn_Callback);
+            set(obj.CaptureBtn, 'Callback', @obj.CaptureBtn_Callback, 'Tag', 'capture');
 
-            set(obj.ContrastCtrl, 'Callback', @obj.ChangedState_Callback);
+            set(obj.ContrastCtrl, 'Callback', @obj.ChangedState_Callback, 'Tag', 'contraststretch');
 
              
             %set(v, 'FramesAcquiredFcn', @obj.FramesAcquiredFcn_Callback);
@@ -150,7 +151,7 @@ classdef MainWindow < handle
 
         function ChangedState_Callback(obj, src, e) 
             % Called when most control values are modified in the GUI
-            notify(obj, 'ChangedOptions', ChangedOptionsEvent(src));
+            notify(obj, 'ChangedOption', ChangedOptionEvent(src));
         end
 
         function delete(obj)
@@ -166,7 +167,7 @@ classdef MainWindow < handle
 
     events
         ClosedMainWindow
-        ChangedOptions
+        ChangedOption
         ChangedPreviewState
         WantCapture
     end

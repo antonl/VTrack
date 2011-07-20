@@ -3,17 +3,18 @@ classdef VTrack < handle
         Video
         SelectVideoDialog
         UserInterface
+        TrackerOptions
     end
 
     methods
-        function obj = VTrack()
+        function obj = VTrack(varargin)
         % Creates select video dialog, initializes the video capture
         % object and then creates the main user interface.
 
             % Quick test to check if GUILayoutToolbox is installed
             if ~(exist('uiextras.VBox') == 8)
-            	throw MException('VTrack:Prereqs:GUIToolboxMissing', ...
-            	    'You do not seem to have the GUI Layout Toolbox Installed');
+            	throw(MException('VTrack:Prereqs:GUIToolboxMissing', ...
+            	    'You do not seem to have the GUI Layout Toolbox Installed'))
             end
 
             if nargin == 0
@@ -31,8 +32,11 @@ classdef VTrack < handle
                 addlistener(obj.SelectVideoDialog, 'SelectedVideo', @obj.SelectedVideo_Callback);
                 addlistener(obj.SelectVideoDialog, 'ClosedDialog', @obj.ClosedSelectVideo_Callback);
                 addlistener(obj.UserInterface, 'ClosedMainWindow', @obj.ClosedMainWindow_Callback);
+                addlistener(obj.UserInterface, 'WantPreview', @obj.WantPreview_Callback);
+
+                obj.TrackerOptions = TrackerOptions();
             else
-                throw MException('VTrack:NotImplemented:ConstructFromArgs', 'Cannot construct VTrack from arguments. Please call VTrack without arguments and use the dialogs.');
+                throw(MException('VTrack:NotImplemented:ConstructFromArgs', 'Cannot construct VTrack from arguments. Please call VTrack without arguments and use the dialogs.'))
                 % Create video object from arguments
             end
         end
@@ -48,9 +52,17 @@ classdef VTrack < handle
             delete(obj.UserInterface);
         end
 
+        function ChangedOptions_Callback(obj, src, e)
+            obj.TrackerOptions.UpdateOptions(e.UpdatedOption);
+            disp(obj.TrackerOptions)
+        end
 
         function ClosedMainWindow_Callback(obj, src, e)
             delete(obj.UserInterface);
+        end
+
+        function WantPreview_Callback(obj, src, e)
+            disp('Want preview!')
         end
 
         function SelectedVideo_Callback(obj, src, e)
@@ -62,6 +74,7 @@ classdef VTrack < handle
 
                 % Request creation of preview window and connect callbacks
                 notify(obj, 'VideoObjectReady', VideoObjectReadyEvent(obj.Video));
+                addlistener(obj.UserInterface, 'ChangedOption', @obj.ChangedOptions_Callback);
             catch e
                 disp('Failed to initialize video');
                 rethrow(e);
