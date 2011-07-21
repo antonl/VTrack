@@ -37,6 +37,7 @@ classdef MainWindow < handle
             uicontrol('Parent', g1, 'style', 'text', 'String', 'Frame Rate', 'HorizontalAlignment', 'Left');
             gui.ExposureCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['1/10000|1/5000|1/2500|1/1111|1/526|1/256|1/128|1/64|1/32|1/16|1/8|1/4'], 'HorizontalAlignment', 'Right', 'Enable', 'off');
             gui.GainCtrl = uicontrol('Parent', g1, 'style', 'slider', 'Max', 63, 'Min', 16, 'Value', 32, 'SliderStep', [1 1], 'Position', [0 0 1 0.3], 'Enable', 'off');
+            
             gui.FrameRateCtrl = uicontrol('Parent', g1, 'style', 'popupmenu', 'String', ['60.0|30.0|15.0|7.5|5'], 'Enable', 'off');
 
             set(g1, 'ColumnSizes', [-1 -1], 'RowSizes', [-1 -1 -1]);
@@ -86,10 +87,10 @@ classdef MainWindow < handle
             addlistener(obj.Preview, 'ClosedPreview', @obj.ClosedPreview_Callback);
 
             % Create callbacks for controls
+            sr = v.Source;
+            pr = propinfo(sr);
 
-            pr = propinfo(v);
-
-            if(isfield(pr, 'Gain'))
+            if(isfield(pr, 'GainMode'))
                 % Turn off automatic gain adjustment
                 set(v, 'GainMode', 'Manual');
                 set(obj.GainCtrl, 'Enable', 'on', 'Callback', @obj.GainCtrl_Callback);
@@ -98,8 +99,8 @@ classdef MainWindow < handle
                 set(obj.GainCtrl, 'Enable', 'off');
             end
             
-            if(isfield(pr, 'Exposure'))
-                set(v, 'ExposureMode', 'Manual');
+            if(isfield(pr, 'ExposureMode'))
+                set(v, 'Exposure', 'Manual');
                 set(obj.ExposureCtrl, 'Enable', 'on', 'Callback', @obj.ExposureCtrl_Callback);
             else
             	fprintf('Warning: Can''t control exposure.\n');
@@ -107,7 +108,14 @@ classdef MainWindow < handle
             end
 
             if(isfield(pr, 'FrameRate'))
-                set(obj.FrameRateCtrl, 'Enable', 'on', 'Callback', @obj.FrameRateCtrl_Callback);
+                frm_str = '';
+                frmrt = pr.FrameRate;
+                for i = 1:length(frmrt.ConstraintValue)-1
+                	frm_str = strcat(frm_str, frmrt.ConstraintValue{i}, '|');
+                end
+                frm_str = strcat(frm_str, frmrt.ConstraintValue{length(frmrt.ConstraintValue)});
+                set(obj.FrameRateCtrl, 'String', frm_str);
+                set(obj.FrameRateCtrl, 'Enable', 'on', 'Callback', @obj.ChangedState_Callback, 'Tag', 'framerate');
             else
             	fprintf('Warning: Can''t control frame rate.\n');
                 set(obj.FrameRateCtrl, 'Enable', 'off');
@@ -138,11 +146,19 @@ classdef MainWindow < handle
         end
 
         function ClosedPreview_Callback(obj, src, e)
-            delete(obj.Preview);
+            notify(obj, 'ChangedPreviewState', ChangedPreviewEvent('off'))
+            set(obj.StartPreviewBtn, 'String', 'Start Preview')
+            set(obj.Preview.Window, 'Visible', 'off')
         end
 
         function StartPreviewBtn_Callback(obj, src, e)
-            notify(obj, 'ChangedPreviewState');
+            if strcmp(get(src, 'String'), 'Start Preview')
+            	set(src, 'String', 'Stop Preview')
+                notify(obj, 'ChangedPreviewState', ChangedPreviewEvent('on'));
+            else 
+            	set(src, 'String', 'Start Preview')
+                notify(obj, 'ChangedPreviewState', ChangedPreviewEvent('off'));
+            end
         end
 
         function CaptureBtn_Callback(obj, src, e) 

@@ -4,7 +4,9 @@ classdef PreviewWindow < handle
         PreviewImage
         TimeField
         ResField
-        StretchField
+        CaptureField
+        ROI_Rect
+        Kern_Rect
     end
 
     methods
@@ -48,7 +50,7 @@ classdef PreviewWindow < handle
 
             StretchPanel = uipanel('Parent', StatusPanel, 'Units', 'characters', 'Position', ...
                 [stretchXOffset 0 stretchSecWidth statusCharHeight]);
-            gui.StretchField = uicontrol('Parent', StretchPanel, 'Style', 'text', 'String', 'Contrast Stretching Off', 'Units', 'normalized', ...
+            gui.CaptureField = uicontrol('Parent', StretchPanel, 'Style', 'text', 'String', 'Status', 'Units', 'normalized', ...
                 'Position', normText);
 
             % Panel to hold preview image
@@ -79,12 +81,11 @@ classdef PreviewWindow < handle
             figHeight = vRes(2) + statusPos(4); 
             set(gui.Window, 'Units', 'pixels');
             set(gui.Window, 'Position', [(sz(3)-figWidth)/2 (sz(4)-figHeight)/2 figWidth figHeight]);
+
+            gui.ROI_Rect = rectangle('Parent', Axes, 'Visible', 'off', 'Position', [1 1 1 1]);
+            gui.Kern_Rect = rectangle('Parent', Axes, 'Visible', 'off', 'Position', [1 1 1 1]);
         end
         
-        function ReceiveData_Callback(obj, v, e, hImage) 
-            %% Function is called when imaq updates a frame
-            hImage = e.Data;
-        end
 
         function PreviewCloseFcn(obj, src, e)
             notify(obj, 'ClosedPreview', event.EventData);

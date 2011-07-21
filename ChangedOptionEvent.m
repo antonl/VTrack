@@ -35,6 +35,8 @@ classdef ChangedOptionEvent < event.EventData
             	e.UpdatedOption.BackgroundSubtract = get(src, 'Value');
             elseif strcmp(tag, 'setbackground')
             	e.UpdatedOption.CurrentBackground = get(src, 'Value');
+            elseif strcmp(tag, 'framerate')
+                e.UpdatedOption.FrameRate = get(src, 'Value');
             else
                 throw(MException('VTrack:UnknownEvent', 'ChangedOption event called by an unknown source'));
             end
