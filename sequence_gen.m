@@ -1,6 +1,6 @@
 % Create test image sequence
 
-path = 'timage_jump\';
+path = 'timage_jump/';
 
 % Size of images to generate
 sz = [400 400];
@@ -9,7 +9,7 @@ sz = [400 400];
 len = 50;
 
 % Background value
-bg = 10; % Between 255 and 0
+bg = 100; % Between 255 and 0
 
 % Peak intensity value
 i0 = 1;
@@ -25,7 +25,7 @@ pos = @(t) [100 + 0.05.*floor(0.2.*t), 200];
 %imshow(gimg, 'InitialMagnification', 400), colorbar;
 for t = 0:len-1
     [X, Y] = meshgrid(1:sz(1), 1:sz(2));
-    img = gaussian(X, Y, pos(t), part, i0); 
+    img = imnoise(gaussian(X, Y, pos(t), part, i0), 'poisson'); 
     %disp(pos(t));
     %imshow(img);
     %pause
